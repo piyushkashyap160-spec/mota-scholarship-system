@@ -1,7 +1,8 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Award, Search, Filter, Shield, AlertTriangle, CheckCircle2, Clock, Users, ArrowUpRight, FileText, ChevronRight, BarChart3, TrendingUp, Sparkles } from 'lucide-react';
 import { api } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
+import { INDIAN_STATES_AND_UTS } from '../constants';
 
 export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking }) {
   const [applications, setApplications] = useState([]);
@@ -255,16 +256,10 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
               onChange={(e) => setStateFilter(e.target.value)}
               className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white text-slate-700"
             >
-              <option value="All">All States</option>
-              <option value="Jharkhand">Jharkhand</option>
-              <option value="Odisha">Odisha</option>
-              <option value="Madhya Pradesh">Madhya Pradesh</option>
-              <option value="Assam">Assam</option>
-              <option value="Chhattisgarh">Chhattisgarh</option>
-              <option value="Meghalaya">Meghalaya</option>
-              <option value="Rajasthan">Rajasthan</option>
-              <option value="Maharashtra">Maharashtra</option>
-              <option value="Gujarat">Gujarat</option>
+              <option value="All">All States / UTs</option>
+              {INDIAN_STATES_AND_UTS.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
             </select>
 
             {/* Search */}

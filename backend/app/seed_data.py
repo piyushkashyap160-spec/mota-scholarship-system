@@ -1,10 +1,49 @@
-﻿from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from .models import User, Scheme, Application, Document, Deficiency, ActivityLog
 from .auth import get_password_hash
 from .ocr_engine import cross_verify_document, parse_st_certificate, parse_income_certificate, parse_admission_letter, parse_marksheet
 from .eligibility_engine import evaluate_eligibility
 from .merit_engine import calculate_merit_score
+
+ALL_INDIAN_STATES_AND_UTS = [
+    "Andaman and Nicobar Islands",
+    "Andhra Pradesh",
+    "Arunachal Pradesh",
+    "Assam",
+    "Bihar",
+    "Chandigarh",
+    "Chhattisgarh",
+    "Dadra and Nagar Haveli and Daman and Diu",
+    "Delhi (NCT)",
+    "Goa",
+    "Gujarat",
+    "Haryana",
+    "Himachal Pradesh",
+    "Jammu and Kashmir",
+    "Jharkhand",
+    "Karnataka",
+    "Kerala",
+    "Ladakh",
+    "Lakshadweep",
+    "Madhya Pradesh",
+    "Maharashtra",
+    "Manipur",
+    "Meghalaya",
+    "Mizoram",
+    "Nagaland",
+    "Odisha",
+    "Puducherry",
+    "Punjab",
+    "Rajasthan",
+    "Sikkim",
+    "Tamil Nadu",
+    "Telangana",
+    "Tripura",
+    "Uttar Pradesh",
+    "Uttarakhand",
+    "West Bengal"
+]
 
 def seed_database(db: Session):
     if db.query(Scheme).first() is not None:
@@ -76,7 +115,7 @@ def seed_database(db: Session):
             {"id": "gender", "label": "Gender", "type": "select", "options": ["Male", "Female", "Other"], "required": True, "section": "Personal Info"},
             {"id": "dob", "label": "Date of Birth", "type": "date", "required": True, "section": "Personal Info"},
             {"id": "phone", "label": "Mobile Number", "type": "tel", "required": True, "section": "Personal Info"},
-            {"id": "state", "label": "Domicile State", "type": "select", "options": ["Jharkhand", "Odisha", "Madhya Pradesh", "Assam", "Chhattisgarh", "Meghalaya", "Rajasthan", "Maharashtra", "Gujarat", "Nagaland"], "required": True, "section": "Tribal Verification"},
+            {"id": "state", "label": "Domicile State", "type": "select", "options": ALL_INDIAN_STATES_AND_UTS, "required": True, "section": "Tribal Verification"},
             {"id": "community_tribe", "label": "Sub-Caste / Tribe Name", "type": "text", "required": True, "section": "Tribal Verification"},
             {"id": "st_cert_number", "label": "ST Certificate Number", "type": "text", "required": True, "section": "Tribal Verification"},
             {"id": "category", "label": "Category", "type": "text", "required": True, "default": "ST", "read_only": True, "section": "Tribal Verification"},
@@ -144,7 +183,7 @@ def seed_database(db: Session):
             {"id": "father_name", "label": "Father's / Mother's Name", "type": "text", "required": True, "section": "Personal Info"},
             {"id": "passport_no", "label": "Indian Passport Number", "type": "text", "required": True, "section": "Personal Info"},
             {"id": "dob", "label": "Date of Birth", "type": "date", "required": True, "section": "Personal Info"},
-            {"id": "state", "label": "Native State", "type": "select", "options": ["Jharkhand", "Odisha", "Madhya Pradesh", "Assam", "Chhattisgarh", "Meghalaya", "Rajasthan", "Maharashtra", "Gujarat", "Nagaland"], "required": True, "section": "Tribal Verification"},
+            {"id": "state", "label": "Native State", "type": "select", "options": ALL_INDIAN_STATES_AND_UTS, "required": True, "section": "Tribal Verification"},
             {"id": "community_tribe", "label": "Tribal Community", "type": "text", "required": True, "section": "Tribal Verification"},
             {"id": "st_cert_number", "label": "ST Certificate Number", "type": "text", "required": True, "section": "Tribal Verification"},
             {"id": "category", "label": "Category", "type": "text", "required": True, "default": "ST", "read_only": True, "section": "Tribal Verification"},

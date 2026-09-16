@@ -1,6 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Award, Shield, User, Lock, Mail, ArrowRight, CheckCircle2, Sparkles, AlertCircle } from 'lucide-react';
 import { api } from '../api/client';
+import { INDIAN_STATES_AND_UTS } from '../constants';
 
 export default function Login({ onLoginSuccess, initialTab = 'login' }) {
   const [tab, setTab] = useState(initialTab); // 'login' or 'register'
@@ -226,15 +227,9 @@ export default function Login({ onLoginSuccess, initialTab = 'login' }) {
                   onChange={(e) => setState(e.target.value)}
                   className="w-full px-3 py-2 rounded border border-slate-300 text-xs"
                 >
-                  <option>Jharkhand</option>
-                  <option>Odisha</option>
-                  <option>Madhya Pradesh</option>
-                  <option>Assam</option>
-                  <option>Chhattisgarh</option>
-                  <option>Meghalaya</option>
-                  <option>Rajasthan</option>
-                  <option>Maharashtra</option>
-                  <option>Gujarat</option>
+                  {INDIAN_STATES_AND_UTS.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
                 </select>
               </div>
 
