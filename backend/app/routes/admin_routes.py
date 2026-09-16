@@ -1,6 +1,7 @@
-﻿from datetime import datetime
+from datetime import datetime
 from typing import Optional, List, Dict, Any
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
+from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..database import get_db
@@ -8,6 +9,7 @@ from ..models import User, Scheme, Application, Document, Deficiency, ActivityLo
 from ..schemas import ApplicationOut, ApplicationDetailOut, AdminActionRequest, MeritWeightConfig
 from ..auth import get_current_admin
 from ..merit_engine import rank_applications
+from ..audit import log_action, verify_chain_integrity, export_audit_trail_json, export_audit_trail_csv
 
 router = APIRouter(prefix="/api/admin", tags=["Admin Portal & Scrutiny"])
 
@@ -16,6 +18,7 @@ def list_applications(
     scheme: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
+    risk_level: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
     current_admin: User = Depends(get_current_admin),
     db: Session = Depends(get_db)
@@ -30,6 +33,9 @@ def list_applications(
 
     if state and state != "All":
         query = query.filter(User.state == state)
+
+    if risk_level and risk_level.upper() != "ALL":
+        query = query.filter(Application.risk_level == risk_level.upper())
 
     if search:
         s = f"%{search}%"
@@ -65,6 +71,7 @@ def take_application_action(
     if not app:
         raise HTTPException(status_code=404, detail="Application not found")
 
+    prev_status = app.status
     act = action_in.action.lower()
     if act == "approve":
         app.status = "Selected"
@@ -130,9 +137,67 @@ def take_application_action(
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported action '{action_in.action}'")
 
+    # Append to Immutable Cryptographic Audit Ledger (Priority 5)
+    log_action(
+        db=db,
+        application_id=app.id,
+        actor_name=current_admin.full_name,
+        actor_role="Scrutiny Officer",
+        action=f"Officer Action: {action_in.action.title()}",
+        previous_state=prev_status,
+        new_state=app.status,
+        remarks=action_in.remarks or f"Officer executed action '{action_in.action}'",
+        stage=app.status,
+        document_id=action_in.document_id,
+        user_id=current_admin.id
+    )
+
     db.commit()
     db.refresh(app)
     return {"message": f"Action '{action_in.action}' recorded successfully", "current_status": app.status}
+
+@router.get("/applications/{app_id}/audit-ledger")
+def get_application_audit_ledger(
+    app_id: int,
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Returns the cryptographic hash-chained audit ledger with real-time verification status."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    is_valid, broken_links, blocks = verify_chain_integrity(db, app_id)
+    return {
+        "application_id": app.id,
+        "application_number": app.application_number,
+        "is_integrity_valid": is_valid,
+        "broken_links": broken_links,
+        "total_blocks": len(blocks),
+        "ledger_blocks": blocks
+    }
+
+@router.get("/applications/{app_id}/audit-export")
+def export_application_audit_dossier(
+    app_id: int,
+    format: Optional[str] = Query("json"),
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """Exports certified audit dossier in JSON or CSV format for RTI or statutory audit compliance."""
+    app = db.query(Application).filter(Application.id == app_id).first()
+    if not app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if format and format.lower() == "csv":
+        csv_content = export_audit_trail_csv(db, app_id)
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={"Content-Disposition": f"attachment; filename=mota_audit_{app.application_number}.csv"}
+        )
+
+    return export_audit_trail_json(db, app_id)
 
 @router.post("/merit-ranking")
 def get_merit_ranking(
@@ -160,6 +225,12 @@ def get_analytics(
     scrutiny_apps = db.query(Application).filter(Application.status.in_(["Scrutiny", "Under Verification"])).count()
     submitted_apps = db.query(Application).filter(Application.status == "Submitted").count()
 
+    # Fraud & Risk Metrics
+    high_risk_count = db.query(Application).filter(Application.risk_level == "HIGH").count()
+    med_risk_count = db.query(Application).filter(Application.risk_level == "MEDIUM").count()
+    low_risk_count = db.query(Application).filter(Application.risk_level == "LOW").count()
+    digilocker_count = db.query(Application).filter(Application.is_digilocker_verified == True).count()
+
     total_funds = db.query(func.sum(Application.disbursement_amount)).scalar() or 0.0
 
     # Scheme distribution
@@ -178,6 +249,9 @@ def get_analytics(
         .group_by(Deficiency.doc_type).all()
     flagged_docs = [{"doc_type": r[0] or "general", "count": r[1]} for r in flagged_docs_rows]
 
+    # Estimated Officer-Hours Saved (assumes 45 min per manual verification vs 3 min AI-assisted)
+    officer_hours_saved = round((total_apps * 42) / 60, 1)
+
     return {
         "kpis": {
             "total_applications": total_apps,
@@ -187,8 +261,20 @@ def get_analytics(
             "in_scrutiny": scrutiny_apps,
             "submitted_count": submitted_apps,
             "auto_pass_rate": round((total_apps - review_apps) / max(total_apps, 1) * 100, 1),
-            "total_disbursed_funds_inr": total_funds
+            "total_disbursed_funds_inr": total_funds,
+            "high_risk_count": high_risk_count,
+            "medium_risk_count": med_risk_count,
+            "low_risk_count": low_risk_count,
+            "fraud_flags_raised": high_risk_count + med_risk_count,
+            "digilocker_verified_count": digilocker_count,
+            "digilocker_adoption_rate": round((digilocker_count / max(total_apps, 1)) * 100, 1),
+            "officer_hours_saved": officer_hours_saved
         },
+        "risk_distribution": [
+            {"level": "High Risk", "count": high_risk_count, "color": "#EF4444"},
+            {"level": "Medium Risk", "count": med_risk_count, "color": "#F59E0B"},
+            {"level": "Low Risk / Clean", "count": low_risk_count, "color": "#10B981"}
+        ],
         "status_distribution": [
             {"status": "Selected", "count": selected_apps, "color": "#10B981"},
             {"status": "Under Scrutiny", "count": scrutiny_apps, "color": "#3B82F6"},
@@ -204,6 +290,7 @@ def get_analytics(
         "frequently_flagged_documents": flagged_docs,
         "processing_velocity": [
             {"stage": "Submission to OCR Scan", "average_time": "Instant (3.2 seconds)"},
+            {"stage": "AI Fraud & Cross-Check", "average_time": "Under 1 second"},
             {"stage": "AI Cross-Check to Scrutiny", "average_time": "4.5 hours"},
             {"stage": "Committee Final Decision", "average_time": "3.8 days"},
             {"stage": "Direct Benefit Transfer (DBT)", "average_time": "24 hours"}

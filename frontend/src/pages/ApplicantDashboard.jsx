@@ -1,9 +1,10 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Award, AlertTriangle, CheckCircle2, Clock, Upload, ArrowRight, RefreshCw, FileText, User, ChevronRight, X, ShieldAlert } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Award, AlertTriangle, CheckCircle2, Clock, Upload, ArrowRight, RefreshCw, FileText, User, ChevronRight, X, ShieldAlert, IndianRupee } from 'lucide-react';
 import { api } from '../api/client';
 import Timeline from '../components/Timeline';
 import StatusBadge from '../components/StatusBadge';
 import SideBySideOcrViewer from '../components/SideBySideOcrViewer';
+import PfmsDisbursementModal from '../components/PfmsDisbursementModal';
 
 export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
   const [applications, setApplications] = useState([]);
@@ -12,6 +13,7 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
   const [resubmitModal, setResubmitModal] = useState(null); // deficiency object
   const [resubmitting, setResubmitting] = useState(false);
   const [resubmitMsg, setResubmitMsg] = useState(null);
+  const [showPfmsModal, setShowPfmsModal] = useState(false);
 
   const loadApplications = async () => {
     try {
@@ -120,6 +122,26 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
 
       {selectedApp ? (
         <div className="space-y-8">
+          {/* Action Bar with PFMS DBT Tracker button */}
+          <div className="bg-white p-4 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div>
+              <span className="text-xs text-slate-500 font-medium">Active Application:</span>
+              <div className="flex items-center space-x-2 mt-0.5">
+                <span className="font-mono font-bold text-gov-navy text-sm">{selectedApp.application_number}</span>
+                <span className="text-xs text-slate-600 font-semibold">• {selectedApp.scheme?.name}</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowPfmsModal(true)}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-1.5 transition-colors self-start sm:self-center"
+            >
+              <IndianRupee className="w-3.5 h-3.5" />
+              <span>Track PFMS & DBT Payments</span>
+            </button>
+          </div>
+
           {/* HIGH PRIORITY DEFICIENCY ALERT BANNER */}
           {openDeficiencies.length > 0 && (
             <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-6 shadow-md animate-in fade-in">
@@ -279,6 +301,15 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
           </div>
         </div>
       )}
+
+      {/* PFMS DBT DISBURSEMENT MODAL */}
+      <PfmsDisbursementModal
+        isOpen={showPfmsModal}
+        onClose={() => setShowPfmsModal(false)}
+        applicationId={selectedApp?.id}
+        applicationNumber={selectedApp?.application_number}
+        schemeCode={selectedApp?.scheme?.code}
+      />
     </div>
   );
 }

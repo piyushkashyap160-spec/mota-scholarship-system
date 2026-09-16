@@ -1,4 +1,4 @@
-﻿# Virtual environment
+# Virtual environment
 .venv/
 venv/
 ENV/
@@ -6,6 +6,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+*.pkl
 
 # Node
 node_modules/

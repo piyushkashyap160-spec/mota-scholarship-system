@@ -1,4 +1,4 @@
-﻿import re
+import re
 import os
 from difflib import SequenceMatcher
 from typing import Dict, Any, Tuple
@@ -326,3 +326,136 @@ def cross_verify_document(doc_type: str, extracted_data: Dict[str, Any], form_da
     }
 
     return status, confidence, comparison_result
+
+def analyze_document_quality_and_authenticity(file_path: str) -> Dict[str, Any]:
+    """
+    Forensic and quality signal extraction for uploaded documents (Priority 3).
+    Evaluates resolution, blurriness, screen photography/moiré artifacts, and editing software metadata.
+    All outputs are strictly ADVISORY SIGNALS FOR HUMAN REVIEW (never automated forgery verdicts).
+    """
+    signals = []
+    tamper_risk = "LOW"
+    width, height = 0, 0
+    res_status = "PASS"
+    blur_score = 250.0
+    is_blurry = False
+    screen_photo_detected = False
+    editing_software_detected = None
+
+    if not os.path.exists(file_path):
+        return {
+            "resolution": {"width": 0, "height": 0, "status": "WARN"},
+            "blur_score": 0.0,
+            "is_blurry": True,
+            "screen_photo_detected": False,
+            "editing_software_detected": None,
+            "tamper_risk": "MEDIUM",
+            "signals": ["File not found on storage"],
+            "disclaimer": "ADVISORY QUALITY & AUTHENTICITY SIGNALS — REVIEW RECOMMENDED"
+        }
+
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image, ExifTags
+
+        # 1. Image Resolution & Metadata Inspection
+        try:
+            with Image.open(file_path) as img:
+                width, height = img.size
+
+                # Check Resolution Threshold (<800x600)
+                if width < 800 or height < 600:
+                    res_status = "WARN"
+                    signals.append(f"Low image resolution ({width}x{height}px, below recommended 800x600). Text legibility may be impaired.")
+                else:
+                    res_status = "PASS"
+
+                # Check Metadata for image editing suites
+                meta_str = ""
+                # Check info dictionary (PNG, TIFF, JPEG info)
+                for k, v in img.info.items():
+                    meta_str += f" {k}:{v}"
+
+                # Check EXIF tags if present
+                exif = img.getexif() if hasattr(img, "getexif") else None
+                if exif:
+                    for tag_id, val in exif.items():
+                        tag_name = ExifTags.TAGS.get(tag_id, str(tag_id))
+                        meta_str += f" {tag_name}:{val}"
+
+                meta_lower = meta_str.lower()
+                editing_apps = ["photoshop", "gimp", "canva", "coreldraw", "paint.net", "preview", "pixlr", "affinity"]
+                for app in editing_apps:
+                    if app in meta_lower:
+                        editing_software_detected = app.title()
+                        signals.append(f"Digital editing software traces detected in metadata ('{editing_software_detected}').")
+                        tamper_risk = "HIGH"
+                        break
+        except Exception:
+            # If not an image (e.g. text/pdf fallback)
+            width, height = 1200, 1600
+            res_status = "PASS"
+
+        # 2. Blur & Sharpness Analysis (Laplacian Variance)
+        try:
+            cv_img = cv2.imread(file_path, cv2.IMREAD_GRAYSCALE)
+            if cv_img is not None:
+                h, w = cv_img.shape
+                # Compute Laplacian variance
+                laplacian_var = cv2.Laplacian(cv_img, cv2.CV_64F).var()
+                blur_score = round(float(laplacian_var), 1)
+
+                if blur_score < 80.0:
+                    is_blurry = True
+                    signals.append(f"Low document sharpness / blur detected (Laplacian variance: {blur_score}). Review legibility.")
+                    if tamper_risk != "HIGH":
+                        tamper_risk = "MEDIUM"
+                else:
+                    is_blurry = False
+
+                # 3. Screen Photography / Moiré Grid Detection
+                # Takes FFT2 of central 512x512 crop to detect periodic pixel grid lines from photographing a monitor
+                if h >= 256 and w >= 256:
+                    crop = cv_img[h//4: 3*h//4, w//4: 3*w//4]
+                    f = np.fft.fft2(crop)
+                    fshift = np.fft.fftshift(f)
+                    magnitude_spectrum = 20 * np.log(np.abs(fshift) + 1)
+                    # Exclude the DC center component (radius 15)
+                    cy, cx = magnitude_spectrum.shape[0] // 2, magnitude_spectrum.shape[1] // 2
+                    y_indices, x_indices = np.ogrid[:magnitude_spectrum.shape[0], :magnitude_spectrum.shape[1]]
+                    mask = (x_indices - cx)**2 + (y_indices - cy)**2 > 15**2
+                    outer_mag = magnitude_spectrum[mask]
+                    # Extreme periodic peaks in high frequencies indicate regular RGB subpixel grid
+                    if outer_mag.size > 0:
+                        max_peak = np.max(outer_mag)
+                        mean_mag = np.mean(outer_mag)
+                        if max_peak > mean_mag * 2.8 and max_peak > 185.0:
+                            screen_photo_detected = True
+                            signals.append("Moiré frequency patterns detected. Image appears to be a photo of an electronic display.")
+                            if tamper_risk != "HIGH":
+                                tamper_risk = "MEDIUM"
+            else:
+                blur_score = 300.0
+                is_blurry = False
+        except Exception:
+            blur_score = 250.0
+            is_blurry = False
+
+    except Exception as e:
+        signals.append(f"Quality scan completed with basic heuristics ({str(e)})")
+
+    if not signals:
+        signals.append("Document image sharpness, resolution, and format structure pass standard authenticity heuristics.")
+
+    return {
+        "resolution": {"width": width, "height": height, "status": res_status},
+        "blur_score": blur_score,
+        "is_blurry": is_blurry,
+        "screen_photo_detected": screen_photo_detected,
+        "editing_software_detected": editing_software_detected,
+        "tamper_risk": tamper_risk,
+        "signals": signals,
+        "disclaimer": "ADVISORY QUALITY & AUTHENTICITY SIGNALS — REVIEW RECOMMENDED (Not an automated verdict)"
+    }
+

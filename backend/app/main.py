@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
@@ -6,7 +6,7 @@ import os
 from .config import UPLOAD_DIR
 from .database import engine, Base, SessionLocal
 from .seed_data import seed_database
-from .routes import auth_routes, scheme_routes, document_routes, application_routes, admin_routes
+from .routes import auth_routes, scheme_routes, document_routes, application_routes, admin_routes, integration_routes
 
 # Create all database tables
 Base.metadata.create_all(bind=engine)
@@ -43,6 +43,7 @@ app.include_router(scheme_routes.router)
 app.include_router(document_routes.router)
 app.include_router(application_routes.router)
 app.include_router(admin_routes.router)
+app.include_router(integration_routes.router)
 
 @app.get("/")
 def root():

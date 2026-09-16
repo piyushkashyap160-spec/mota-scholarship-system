@@ -1,4 +1,4 @@
-﻿from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
@@ -74,6 +74,13 @@ class DocumentOut(BaseModel):
     file_size: int
     status: str
     confidence_score: float
+    file_hash: Optional[str] = None
+    predicted_type: Optional[str] = None
+    classifier_confidence: Optional[float] = None
+    type_mismatch: bool = False
+    tampering_signals: Dict[str, Any] = {}
+    is_digilocker_issued: bool = False
+    digilocker_uri: Optional[str] = None
     extracted_data: Dict[str, Any]
     comparison_data: Dict[str, Any]
     upload_date: datetime
@@ -117,6 +124,10 @@ class ApplicationOut(BaseModel):
     eligibility_notes: List[str]
     calculated_merit_score: float
     merit_rank: Optional[int] = None
+    risk_level: str = "LOW"
+    risk_score: float = 0.0
+    is_digilocker_verified: bool = False
+    is_aadhaar_verified: bool = False
     submission_date: datetime
     applicant: Optional[UserOut] = None
     scheme: Optional[SchemeOut] = None
@@ -128,6 +139,8 @@ class ApplicationDetailOut(ApplicationOut):
     documents: List[DocumentOut] = []
     deficiencies: List[DeficiencyOut] = []
     timeline_logs: List[ActivityLogOut] = []
+    risk_assessment: Dict[str, Any] = {}
+    aadhaar_data: Dict[str, Any] = {}
     disbursement_status: Optional[str] = None
     disbursement_amount: Optional[float] = None
     renewal_due_date: Optional[str] = None

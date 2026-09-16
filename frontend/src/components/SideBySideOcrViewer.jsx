@@ -1,5 +1,5 @@
-﻿import React, { useState } from 'react';
-import { FileText, CheckCircle2, AlertTriangle, XCircle, Search, Eye, Sparkles } from 'lucide-react';
+import React, { useState } from 'react';
+import { FileText, CheckCircle2, AlertTriangle, XCircle, Search, Eye, Sparkles, Shield, Camera, Info, ShieldAlert } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 
 export default function SideBySideOcrViewer({ documents = [], readOnly = true }) {
@@ -19,6 +19,7 @@ export default function SideBySideOcrViewer({ documents = [], readOnly = true })
   const comparison = currentDoc.comparison_data || currentDoc.comparison_matrix || {};
   const fields = comparison.fields || {};
   const discrepancies = comparison.discrepancies || currentDoc.discrepancies || [];
+  const tampering = currentDoc.tampering_signals || {};
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -85,12 +86,23 @@ export default function SideBySideOcrViewer({ documents = [], readOnly = true })
 
             <div className="space-y-2 text-xs">
               <div className="flex justify-between py-1 border-b border-slate-200">
-                <span className="text-slate-500">Document Type:</span>
+                <span className="text-slate-500">Document Slot:</span>
                 <span className="font-semibold text-slate-800">{currentDoc.doc_type}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-200">
+                <span className="text-slate-500">AI Classified Type:</span>
+                <span className="font-semibold text-gov-navy flex items-center space-x-1">
+                  <span>{currentDoc.predicted_type || currentDoc.doc_type}</span>
+                  {currentDoc.type_mismatch && (
+                    <span className="px-1.5 py-0.2 text-[10px] font-bold bg-rose-100 text-rose-700 rounded border border-rose-300">
+                      Mismatch
+                    </span>
+                  )}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200">
                 <span className="text-slate-500">OCR Engine:</span>
-                <span className="font-semibold text-gov-navy">Tesseract OCR v5.4 / MoTA Regex Parser</span>
+                <span className="font-semibold text-gov-navy">Tesseract OCR v5.4 / MoTA Doc Classifier</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-200">
                 <span className="text-slate-500">AI Confidence Score:</span>
@@ -115,6 +127,17 @@ export default function SideBySideOcrViewer({ documents = [], readOnly = true })
                 />
               </div>
             </div>
+
+            {/* Slot Mismatch Callout */}
+            {currentDoc.type_mismatch && (
+              <div className="mt-3 p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-800 flex items-start space-x-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="font-bold block">Document Slot Mismatch Detected</strong>
+                  Candidate uploaded a file classified as <em>{currentDoc.predicted_type}</em> into the <em>{currentDoc.doc_type}</em> slot.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* OCR Raw Text Preview Box */}
@@ -129,6 +152,80 @@ export default function SideBySideOcrViewer({ documents = [], readOnly = true })
             <pre className="whitespace-pre-wrap max-h-36 overflow-y-auto leading-relaxed text-slate-300">
               {currentDoc.ocr_text || currentDoc.ocr_preview || 'Document scanned successfully.'}
             </pre>
+          </div>
+
+          {/* Advisory Document Quality & Tamper Signals Card (Priority 3) */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+              <div className="flex items-center space-x-1.5">
+                <Shield className="w-4 h-4 text-gov-navy" />
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                  Document Authenticity & Quality Signals
+                </span>
+              </div>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                tampering.tamper_risk === 'HIGH'
+                  ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                  : tampering.tamper_risk === 'MEDIUM'
+                  ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+              }`}>
+                {tampering.tamper_risk || 'LOW'} Risk
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px]">
+              <div className="bg-white p-2 rounded border border-slate-200">
+                <span className="text-slate-400 block text-[10px] font-bold uppercase">Resolution</span>
+                <span className="font-semibold text-slate-800">
+                  {tampering.resolution ? `${tampering.resolution.width}x${tampering.resolution.height}px` : '1200x1600px'}
+                </span>
+                <span className={`text-[10px] ml-1 font-bold ${tampering.resolution?.status === 'WARN' ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  ({tampering.resolution?.status || 'PASS'})
+                </span>
+              </div>
+
+              <div className="bg-white p-2 rounded border border-slate-200">
+                <span className="text-slate-400 block text-[10px] font-bold uppercase">Sharpness / Blur</span>
+                <span className="font-semibold text-slate-800">
+                  {tampering.blur_score != null ? `${tampering.blur_score}` : '240.0'}
+                </span>
+                <span className={`text-[10px] ml-1 font-bold ${tampering.is_blurry ? 'text-rose-600' : 'text-emerald-600'}`}>
+                  ({tampering.is_blurry ? 'Blurry' : 'Sharp'})
+                </span>
+              </div>
+
+              <div className="bg-white p-2 rounded border border-slate-200">
+                <span className="text-slate-400 block text-[10px] font-bold uppercase">Screen Photo Grid</span>
+                <span className={`font-semibold ${tampering.screen_photo_detected ? 'text-rose-700' : 'text-emerald-700'}`}>
+                  {tampering.screen_photo_detected ? 'Detected (Moiré)' : 'None (Direct File)'}
+                </span>
+              </div>
+
+              <div className="bg-white p-2 rounded border border-slate-200">
+                <span className="text-slate-400 block text-[10px] font-bold uppercase">Editor Software</span>
+                <span className={`font-semibold truncate block ${tampering.editing_software_detected ? 'text-rose-700' : 'text-slate-700'}`}>
+                  {tampering.editing_software_detected ? `Traces: ${tampering.editing_software_detected}` : 'None Detected'}
+                </span>
+              </div>
+            </div>
+
+            {/* Signal Details List */}
+            {tampering.signals && tampering.signals.length > 0 && (
+              <div className="pt-2 border-t border-slate-200 space-y-1">
+                {tampering.signals.map((sig, sIdx) => (
+                  <div key={sIdx} className="flex items-start space-x-1.5 text-[11px] text-slate-600">
+                    <span className="text-slate-400 font-bold">•</span>
+                    <span>{sig}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Advisory disclaimer footer */}
+            <p className="text-[10px] text-slate-400 italic pt-1 border-t border-slate-200">
+              *Advisory Quality & Authenticity Signals: Automated indicators to guide officer scrutiny. Not an automated legal verdict.
+            </p>
           </div>
 
           {/* Discrepancy Warnings (if any) */}

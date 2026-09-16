@@ -1,9 +1,11 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Shield, User, FileText, Send, Award, Clock, Sparkles } from 'lucide-react';
 import { api } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import SideBySideOcrViewer from '../components/SideBySideOcrViewer';
 import Timeline from '../components/Timeline';
+import FraudRiskPanel from '../components/FraudRiskPanel';
+import AuditLedgerViewer from '../components/AuditLedgerViewer';
 
 export default function AdminApplicationDetail({ applicationId, onBack, onActionComplete }) {
   const [app, setApp] = useState(null);
@@ -151,6 +153,13 @@ export default function AdminApplicationDetail({ applicationId, onBack, onAction
         </div>
       </div>
 
+      {/* AUTOMATED FRAUD & DUPLICATE RISK EVALUATION */}
+      <FraudRiskPanel
+        riskAssessment={app.risk_assessment}
+        riskLevel={app.risk_level}
+        riskScore={app.risk_score}
+      />
+
       {/* AUTOMATED SCHEME ELIGIBILITY EVALUATION RESULT */}
       <div className={`rounded-2xl border p-5 shadow-sm text-xs ${
         isEligible ? 'bg-emerald-50/60 border-emerald-200' : 'bg-rose-50/60 border-rose-200'
@@ -192,6 +201,12 @@ export default function AdminApplicationDetail({ applicationId, onBack, onAction
         timelineLogs={app.timeline_logs}
         disbursementStatus={app.disbursement_status}
         disbursementAmount={app.disbursement_amount}
+      />
+
+      {/* IMMUTABLE CRYPTOGRAPHIC AUDIT LEDGER */}
+      <AuditLedgerViewer
+        applicationId={app.id}
+        applicationNumber={app.application_number}
       />
 
       {/* ACTION DIALOG MODAL */}

@@ -1,4 +1,4 @@
-﻿const API_BASE = 'http://localhost:8000';
+const API_BASE = 'http://localhost:8000';
 
 function getAuthHeaders(isFormData = false) {
   const token = localStorage.getItem('mota_token');
@@ -87,6 +87,7 @@ export const api = {
       if (params.scheme) query.append('scheme', params.scheme);
       if (params.status) query.append('status', params.status);
       if (params.state) query.append('state', params.state);
+      if (params.risk_level) query.append('risk_level', params.risk_level);
       if (params.search) query.append('search', params.search);
       return request(`/api/admin/applications?${query.toString()}`);
     },
@@ -102,5 +103,32 @@ export const api = {
         body: JSON.stringify(weights),
       }),
     getAnalytics: () => request('/api/admin/analytics'),
+    getAuditLedger: (id) => request(`/api/admin/applications/${id}/audit-ledger`),
+    exportAuditUrl: (id, format = 'json') => `http://localhost:8000/api/admin/applications/${id}/audit-export?format=${format}`,
+  },
+
+  integrations: {
+    getDigiLockerProfiles: () => request('/api/integrations/digilocker/profiles'),
+    fetchDigiLockerDocs: (profileId = 'jharkhand_birsa') =>
+      request('/api/integrations/digilocker/fetch', {
+        method: 'POST',
+        body: JSON.stringify({ profile_id: profileId }),
+      }),
+    sendAadhaarOtp: (aadhaarNumber) =>
+      request('/api/integrations/aadhaar/send-otp', {
+        method: 'POST',
+        body: JSON.stringify({ aadhaar_number: aadhaarNumber }),
+      }),
+    verifyAadhaarOtp: (payload) =>
+      request('/api/integrations/aadhaar/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    getPfmsTracker: (appId) => request(`/api/integrations/pfms/${appId}`),
+    logGrievance: (appId, payload) =>
+      request(`/api/integrations/pfms/${appId}/grievance`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   },
 };

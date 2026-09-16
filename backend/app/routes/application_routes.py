@@ -1,4 +1,4 @@
-﻿import random
+import random
 from datetime import datetime
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -9,6 +9,8 @@ from ..schemas import ApplicationOut, ApplicationDetailOut, ApplicationSubmit, R
 from ..auth import get_current_user
 from ..eligibility_engine import evaluate_eligibility
 from ..merit_engine import calculate_merit_score
+from ..fraud_engine import evaluate_application_risk
+from ..audit import log_action
 
 router = APIRouter(prefix="/api/applications", tags=["Applications"])
 
@@ -32,6 +34,9 @@ def submit_application(
     # Calculate initial merit score
     merit_score = calculate_merit_score(payload.form_data, income_ceiling=scheme.income_ceiling)
 
+    # Collect any document file hashes provided by upload/scan step
+    uploaded_file_hashes = [doc.get("file_hash") for doc in payload.documents if doc.get("file_hash")]
+
     # Create Application
     new_app = Application(
         application_number=app_num,
@@ -49,7 +54,13 @@ def submit_application(
     db.add(new_app)
     db.flush()
 
-    # Save attached documents
+    # Run AI Fraud & Duplicate Detection Engine
+    risk_assessment = evaluate_application_risk(new_app, db, uploaded_file_hashes)
+    new_app.risk_assessment = risk_assessment
+    new_app.risk_level = risk_assessment.get("risk_level", "LOW")
+    new_app.risk_score = risk_assessment.get("risk_score", 0.0)
+
+    # Save attached documents with forensic & hash properties
     for doc_item in payload.documents:
         new_doc = Document(
             application_id=new_app.id,
@@ -57,8 +68,13 @@ def submit_application(
             file_name=doc_item.get("file_name", "document.pdf"),
             file_path=f"/uploads/{doc_item.get('file_name', 'doc.pdf')}",
             file_size=doc_item.get("file_size", 150000),
+            file_hash=doc_item.get("file_hash"),
             status=doc_item.get("status", "Verified"),
             confidence_score=doc_item.get("confidence_score", 95.0),
+            predicted_type=doc_item.get("predicted_type"),
+            classifier_confidence=doc_item.get("classifier_confidence"),
+            type_mismatch=doc_item.get("type_mismatch", False),
+            tampering_signals=doc_item.get("tampering_signals"),
             extracted_data=doc_item.get("extracted_data", {}),
             comparison_data=doc_item.get("comparison_matrix", {}),
             ocr_text=doc_item.get("ocr_preview", "OCR Processed"),
@@ -85,6 +101,33 @@ def submit_application(
     )
     db.add(log1)
     db.add(log2)
+
+    # Log Fraud Risk Signal advisory if any flags were raised
+    if risk_assessment.get("flags"):
+        flag_summary = "; ".join([f["flag_name"] for f in risk_assessment["flags"][:3]])
+        log3 = ActivityLog(
+            application_id=new_app.id,
+            action=f"Fraud & Risk Scan: {new_app.risk_level} RISK",
+            actor="MoTA Fraud Engine",
+            stage="Under Verification",
+            remarks=f"Risk Score: {new_app.risk_score}/100. Advisory Flags: {flag_summary}",
+            created_at=datetime.utcnow()
+        )
+        db.add(log3)
+
+    # Append Immutable Cryptographic Audit Ledger Entry (Priority 5)
+    log_action(
+        db=db,
+        application_id=new_app.id,
+        actor_name=current_user.full_name,
+        actor_role="Applicant",
+        action="Application Submitted",
+        previous_state="Draft",
+        new_state="Under Verification",
+        remarks=f"Application {app_num} formally submitted with {len(payload.documents)} documents.",
+        stage="Submitted",
+        user_id=current_user.id
+    )
 
     db.commit()
     db.refresh(new_app)
@@ -163,6 +206,22 @@ def resubmit_deficient_document(
         created_at=datetime.utcnow()
     )
     db.add(log)
+
+    # Append to Cryptographic Audit Ledger (Priority 5)
+    log_action(
+        db=db,
+        application_id=app.id,
+        actor_name=current_user.full_name,
+        actor_role="Applicant",
+        action="Document Resubmitted",
+        previous_state="Needs Review",
+        new_state=app.status,
+        remarks=f"Applicant uploaded rectified document for '{defic.doc_type}'. Deficiency resolved.",
+        stage=app.status,
+        document_id=defic.document_id,
+        user_id=current_user.id
+    )
+
     db.commit()
 
     return {"message": "Document resubmitted successfully. Deficiency resolved.", "new_status": app.status}

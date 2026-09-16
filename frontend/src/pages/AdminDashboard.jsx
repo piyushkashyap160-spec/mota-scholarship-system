@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Search, Filter, Shield, AlertTriangle, CheckCircle2, Clock, Users, ArrowUpRight, FileText, ChevronRight, BarChart3, TrendingUp, Sparkles } from 'lucide-react';
+import { Award, Search, Filter, Shield, AlertTriangle, CheckCircle2, Clock, Users, ArrowUpRight, FileText, ChevronRight, BarChart3, TrendingUp, Sparkles, ShieldAlert } from 'lucide-react';
 import { api } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
+import RiskBadge from '../components/RiskBadge';
 import { INDIAN_STATES_AND_UTS } from '../constants';
 
 export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking }) {
@@ -13,6 +14,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
   const [schemeFilter, setSchemeFilter] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('All');
   const [stateFilter, setStateFilter] = useState('All');
+  const [riskFilter, setRiskFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
   const loadData = async () => {
@@ -23,6 +25,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
           scheme: schemeFilter !== 'ALL' ? schemeFilter : undefined,
           status: statusFilter !== 'All' ? statusFilter : undefined,
           state: stateFilter !== 'All' ? stateFilter : undefined,
+          risk_level: riskFilter !== 'All' ? riskFilter : undefined,
           search: searchQuery || undefined,
         }),
         api.admin.getAnalytics(),
@@ -38,7 +41,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
 
   useEffect(() => {
     loadData();
-  }, [schemeFilter, statusFilter, stateFilter]);
+  }, [schemeFilter, statusFilter, stateFilter, riskFilter]);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -83,16 +86,19 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
           <span className="text-[10px] text-slate-500 mt-1 block font-medium">Across all states</span>
         </div>
 
+        <div className="bg-white p-4 rounded-xl border border-rose-200 shadow-sm bg-rose-50/20">
+          <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider block">Fraud Flags Raised</span>
+          <div className="flex items-baseline space-x-1.5 mt-1">
+            <span className="text-2xl font-extrabold text-rose-700">{kpis.fraud_flags_raised || 0}</span>
+            <span className="text-xs font-semibold text-rose-600">({kpis.high_risk_count || 0} High)</span>
+          </div>
+          <span className="text-[10px] text-rose-600 mt-1 block font-medium">Advisory AI triggers</span>
+        </div>
+
         <div className="bg-white p-4 rounded-xl border border-emerald-200 shadow-sm bg-emerald-50/20">
           <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider block">Selected Scholars</span>
           <span className="text-2xl font-extrabold text-emerald-700 block mt-1">{kpis.selected_scholars || 4}</span>
           <span className="text-[10px] text-emerald-600 mt-1 block font-medium">Award letters issued</span>
-        </div>
-
-        <div className="bg-white p-4 rounded-xl border border-purple-200 shadow-sm bg-purple-50/20">
-          <span className="text-[11px] font-bold text-purple-700 uppercase tracking-wider block">In Scrutiny</span>
-          <span className="text-2xl font-extrabold text-purple-700 block mt-1">{kpis.in_scrutiny || 4}</span>
-          <span className="text-[10px] text-purple-600 mt-1 block font-medium">Awaiting Committee</span>
         </div>
 
         <div className="bg-white p-4 rounded-xl border border-amber-200 shadow-sm bg-amber-50/20">
@@ -262,6 +268,18 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
               ))}
             </select>
 
+            {/* Fraud Risk Filter */}
+            <select
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value)}
+              className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white text-slate-700"
+            >
+              <option value="All">All Risk Levels</option>
+              <option value="HIGH">🚨 High Risk Only</option>
+              <option value="MEDIUM">⚠️ Medium Risk</option>
+              <option value="LOW">🛡️ Low / Clean Only</option>
+            </select>
+
             {/* Search */}
             <form onSubmit={handleSearchSubmit} className="relative">
               <input
@@ -285,6 +303,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 <th className="py-3 px-4">Applicant & Tribe</th>
                 <th className="py-3 px-4">Scheme</th>
                 <th className="py-3 px-4">State</th>
+                <th className="py-3 px-4">Fraud Risk</th>
                 <th className="py-3 px-4">Academic Marks</th>
                 <th className="py-3 px-4">Annual Income</th>
                 <th className="py-3 px-4">AI Verification</th>
@@ -294,7 +313,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     Loading applications...
                   </td>
                 </tr>
@@ -322,6 +341,9 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                     <td className="py-3.5 px-4 text-slate-700 font-medium">
                       {app.applicant?.state || app.form_data?.state}
                     </td>
+                    <td className="py-3.5 px-4">
+                      <RiskBadge level={app.risk_level} score={app.risk_score} />
+                    </td>
                     <td className="py-3.5 px-4 font-mono font-bold text-slate-800">
                       {app.form_data?.marks_percentage}%
                     </td>
@@ -348,7 +370,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="py-8 text-center text-slate-400">
+                  <td colSpan={9} className="py-8 text-center text-slate-400">
                     No applications matched the selected filter criteria.
                   </td>
                 </tr>

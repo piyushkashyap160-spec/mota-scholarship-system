@@ -1,4 +1,4 @@
-﻿from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, ForeignKey
+from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, JSON, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
 from .database import Base
@@ -63,6 +63,16 @@ class Application(Base):
     disbursement_amount = Column(Float, default=0.0)
     renewal_due_date = Column(String(50), nullable=True)
 
+    # Risk & Fraud Assessment
+    risk_assessment = Column(JSON, default=dict)
+    risk_level = Column(String(20), default="LOW", index=True)  # "LOW", "MEDIUM", "HIGH"
+    risk_score = Column(Float, default=0.0)
+
+    # e-Governance & Integrations
+    is_digilocker_verified = Column(Boolean, default=False)
+    is_aadhaar_verified = Column(Boolean, default=False)
+    aadhaar_data = Column(JSON, default=dict)
+
     submission_date = Column(DateTime, default=datetime.utcnow)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -72,6 +82,7 @@ class Application(Base):
     documents = relationship("Document", back_populates="application", cascade="all, delete-orphan")
     deficiencies = relationship("Deficiency", back_populates="application", cascade="all, delete-orphan")
     timeline_logs = relationship("ActivityLog", back_populates="application", cascade="all, delete-orphan")
+    audit_ledger = relationship("AuditLogEntry", back_populates="application", cascade="all, delete-orphan", order_by="AuditLogEntry.id")
 
 class Document(Base):
     __tablename__ = "documents"
@@ -82,6 +93,7 @@ class Document(Base):
     file_name = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
     file_size = Column(Integer, default=0)
+    file_hash = Column(String(64), nullable=True, index=True)  # SHA-256 for duplicate file detection
     status = Column(String(50), default="Pending")
     # "Pending", "Verified", "Needs Review", "Missing/Unreadable"
 
@@ -89,6 +101,19 @@ class Document(Base):
     extracted_data = Column(JSON, default=dict)
     comparison_data = Column(JSON, default=dict)
     ocr_text = Column(Text, nullable=True)
+
+    # Document Classifier output
+    predicted_type = Column(String(100), nullable=True)
+    classifier_confidence = Column(Float, nullable=True)
+    type_mismatch = Column(Boolean, default=False)
+
+    # Forensic & Tampering signals
+    tampering_signals = Column(JSON, default=dict)
+
+    # DigiLocker issuer flag
+    is_digilocker_issued = Column(Boolean, default=False)
+    digilocker_uri = Column(String(255), nullable=True)
+
     upload_date = Column(DateTime, default=datetime.utcnow)
 
     application = relationship("Application", back_populates="documents")
@@ -120,3 +145,24 @@ class ActivityLog(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     application = relationship("Application", back_populates="timeline_logs")
+
+class AuditLogEntry(Base):
+    __tablename__ = "audit_log_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    actor_name = Column(String(255), nullable=False)
+    actor_role = Column(String(50), nullable=False)
+    action = Column(String(100), nullable=False)
+    previous_state = Column(String(50), nullable=True)
+    new_state = Column(String(50), nullable=True)
+    stage = Column(String(50), nullable=False)
+    remarks = Column(Text, nullable=True)
+    document_id = Column(Integer, nullable=True)
+    details = Column(JSON, default=dict)
+    previous_hash = Column(String(64), nullable=False)
+    entry_hash = Column(String(64), nullable=False, unique=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    application = relationship("Application", back_populates="audit_ledger")

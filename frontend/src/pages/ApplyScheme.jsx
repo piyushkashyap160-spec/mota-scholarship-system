@@ -1,15 +1,24 @@
-﻿import React, { useState, useEffect } from 'react';
-import { Award, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, AlertTriangle, FileText, Send, Sparkles, Loader2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Award, ArrowLeft, ArrowRight, ShieldCheck, CheckCircle2, AlertTriangle, FileText, Send, Sparkles, Loader2, KeyRound, Lock } from 'lucide-react';
 import { api } from '../api/client';
 import DynamicFormRenderer from '../components/DynamicFormRenderer';
 import DocumentUploader from '../components/DocumentUploader';
 import SideBySideOcrViewer from '../components/SideBySideOcrViewer';
+import DigiLockerModal from '../components/DigiLockerModal';
+import AadhaarKycModal from '../components/AadhaarKycModal';
 
 export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }) {
   const [scheme, setScheme] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+
+  // Integration Modals State
+  const [showDigiLockerModal, setShowDigiLockerModal] = useState(false);
+  const [showAadhaarModal, setShowAadhaarModal] = useState(false);
+  const [isAadhaarVerified, setIsAadhaarVerified] = useState(false);
+  const [isDigiLockerVerified, setIsDigiLockerVerified] = useState(false);
+  const [digiLockerSuccessMsg, setDigiLockerSuccessMsg] = useState(null);
 
   // Form data state
   const [formData, setFormData] = useState({
@@ -56,6 +65,34 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
     }));
   };
 
+  const handleDigiLockerImport = (result) => {
+    setIsDigiLockerVerified(true);
+    setFormData((prev) => ({
+      ...prev,
+      ...result.autofill_data,
+    }));
+    const docsMap = {};
+    for (const doc of result.documents) {
+      docsMap[doc.doc_type] = doc;
+    }
+    setScannedDocs((prev) => ({
+      ...prev,
+      ...docsMap,
+    }));
+    setDigiLockerSuccessMsg(`Successfully imported ${result.documents.length} pre-verified documents from DigiLocker for ${result.student_name}! Form fields auto-populated.`);
+  };
+
+  const handleAadhaarKycComplete = (kycResult) => {
+    setIsAadhaarVerified(true);
+    if (kycResult.demographics) {
+      setFormData((prev) => ({
+        ...prev,
+        full_name: kycResult.demographics.full_name,
+        state: kycResult.demographics.state || prev.state,
+      }));
+    }
+  };
+
   const handleSubmitApplication = async () => {
     setSubmitting(true);
     setError(null);
@@ -63,7 +100,11 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
       const documentsList = Object.values(scannedDocs);
       const payload = {
         scheme_id: scheme.id,
-        form_data: formData,
+        form_data: {
+          ...formData,
+          is_aadhaar_verified: isAadhaarVerified,
+          is_digilocker_verified: isDigiLockerVerified,
+        },
         documents: documentsList,
       };
 
@@ -162,6 +203,41 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
       {/* STEP 1: DYNAMIC FORM FIELDS */}
       {step === 1 && (
         <div className="space-y-6">
+          {/* Aadhaar e-KYC Verification Banner */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center space-x-3">
+              <div className="w-9 h-9 rounded-lg bg-gov-navy text-white flex items-center justify-center font-bold">
+                <ShieldCheck className="w-5 h-5 text-emerald-300" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-gov-navy block">
+                  {isAadhaarVerified ? 'Aadhaar e-KYC Certified' : 'Aadhaar e-KYC Identity Verification'}
+                </span>
+                <p className="text-[11px] text-slate-600">
+                  {isAadhaarVerified
+                    ? `Candidate name certified as '${formData.full_name}' via UIDAI authentication.`
+                    : 'Verify your Aadhaar with OTP to certify name & domicile and speed up scholarship scrutiny.'}
+                </p>
+              </div>
+            </div>
+
+            {isAadhaarVerified ? (
+              <span className="px-3 py-1.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center space-x-1 border border-emerald-300">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <span>e-KYC Verified</span>
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowAadhaarModal(true)}
+                className="px-4 py-2 bg-gov-navy hover:bg-blue-900 text-white rounded-lg text-xs font-bold shadow flex items-center space-x-1.5 transition-colors self-start sm:self-center"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-300" />
+                <span>Verify with Aadhaar OTP</span>
+              </button>
+            )}
+          </div>
+
           <DynamicFormRenderer
             scheme={scheme}
             formData={formData}
@@ -184,6 +260,44 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
       {/* STEP 2: DOCUMENT UPLOAD & AI OCR VERIFICATION */}
       {step === 2 && (
         <div className="space-y-6">
+          {/* DigiLocker Fast-Track Banner */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow">
+                <ShieldCheck className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <span className="font-bold text-xs text-slate-900 block flex items-center space-x-2">
+                  <span>DigiLocker Integration (India Stack)</span>
+                  {isDigiLockerVerified && (
+                    <span className="px-2 py-0.2 rounded text-[10px] font-bold bg-emerald-200 text-emerald-900">
+                      Pre-Verified
+                    </span>
+                  )}
+                </span>
+                <p className="text-[11px] text-slate-600 mt-0.5">
+                  Have documents in DigiLocker? Pull digitally-signed ST Certificates & Marksheets with 100% authenticity.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowDigiLockerModal(true)}
+              className="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow flex items-center space-x-2 transition-colors self-start sm:self-center"
+            >
+              <Sparkles className="w-4 h-4 text-emerald-200" />
+              <span>Fetch from DigiLocker</span>
+            </button>
+          </div>
+
+          {digiLockerSuccessMsg && (
+            <div className="p-3 bg-emerald-100/70 border border-emerald-300 rounded-xl text-emerald-950 text-xs flex items-center space-x-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-700 shrink-0" />
+              <span className="font-semibold">{digiLockerSuccessMsg}</span>
+            </div>
+          )}
+
           <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl text-xs text-gov-navy flex items-start space-x-3">
             <Sparkles className="w-5 h-5 flex-shrink-0 mt-0.5 text-gov-navy" />
             <div>
@@ -273,6 +387,21 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
           </div>
         </div>
       )}
+
+      {/* DIGILOCKER MODAL */}
+      <DigiLockerModal
+        isOpen={showDigiLockerModal}
+        onClose={() => setShowDigiLockerModal(false)}
+        onImportComplete={handleDigiLockerImport}
+      />
+
+      {/* AADHAAR E-KYC MODAL */}
+      <AadhaarKycModal
+        isOpen={showAadhaarModal}
+        onClose={() => setShowAadhaarModal(false)}
+        currentName={formData.full_name}
+        onKycComplete={handleAadhaarKycComplete}
+      />
     </div>
   );
 }
