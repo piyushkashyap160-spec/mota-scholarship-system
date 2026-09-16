@@ -1,0 +1,27 @@
+﻿# Virtual environment
+.venv/
+venv/
+ENV/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# Database & uploads
+backend/mota_scholarship.db
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Environment & logs
+.env
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
