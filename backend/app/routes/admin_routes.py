@@ -11,6 +11,14 @@ from ..auth import get_current_admin
 from ..merit_engine import rank_applications
 from ..audit import log_action, verify_chain_integrity, export_audit_trail_json, export_audit_trail_csv
 
+SCHEME_ANNUAL_AMOUNTS = {
+    "NFST": 336000.0,   # PhD: Rs 28000 x 12
+    "NOS": 1850000.0,   # USD 15400 + contingency converted approx
+    "TOP_CLASS": 200000.0,
+    "POST_MATRIC": 14400.0,   # Rs 1200 x 12 max
+    "PRE_MATRIC": 6300.0,     # Rs 525 x 12 hosteller
+}
+
 router = APIRouter(prefix="/api/admin", tags=["Admin Portal & Scrutiny"])
 
 @router.get("/applications", response_model=List[ApplicationOut])
@@ -76,7 +84,7 @@ def take_application_action(
     if act == "approve":
         app.status = "Selected"
         app.disbursement_status = "Active Fellowship Disbursement"
-        app.disbursement_amount = 432000.0 if app.scheme.code == "NFST" else 1850000.0
+        app.disbursement_amount = SCHEME_ANNUAL_AMOUNTS.get(app.scheme.code, 0.0) if app.scheme else 0.0
         app.renewal_due_date = "2027-03-31"
 
         log = ActivityLog(
@@ -85,6 +93,19 @@ def take_application_action(
             actor=current_admin.full_name,
             stage="Selected",
             remarks=action_in.remarks or "Candidate selected by Scrutiny Committee for award of Fellowship/Scholarship.",
+            created_at=datetime.utcnow()
+        )
+        db.add(log)
+
+    elif act == "mark_verified":
+        app.status = "Scrutiny"
+        app.disbursement_status = "Pending Committee Decision"
+        log = ActivityLog(
+            application_id=app.id,
+            action="Application Marked Verified",
+            actor=current_admin.full_name,
+            stage="Scrutiny",
+            remarks=action_in.remarks or "Application documents and eligibility marked verified by scrutiny officer.",
             created_at=datetime.utcnow()
         )
         db.add(log)

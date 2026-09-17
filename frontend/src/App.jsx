@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -171,7 +171,7 @@ export default function App() {
               जनजातीय कार्य मंत्रालय <span className="text-slate-500">|</span> Ministry of Tribal Affairs
             </p>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              Government of India • SIH 2024 Problem Statement 26239 Prototype
+              Government of India • SIH 2025 Problem Statement 26239 Prototype
             </p>
           </div>
           <div className="text-center sm:text-right text-[11px] text-slate-500">

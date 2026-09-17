@@ -237,6 +237,20 @@ def classify_document(ocr_text: str, expected_slot: Optional[str] = None) -> Dic
         "probabilities": prob_dict
     }
 
+def _ensure_model_trained() -> None:
+    """
+    Checks if doc_classifier_model.pkl exists on disk (e.g. after a fresh clone).
+    If missing, generates synthetic training data and trains + saves the model automatically.
+    """
+    if not os.path.exists(MODEL_PATH):
+        try:
+            train_and_save_classifier()
+        except Exception:
+            pass
+
+# Ensure classifier model exists on module import
+_ensure_model_trained()
+
 if __name__ == "__main__":
     train_and_save_classifier()
     print("Document classifier trained and cached successfully.")

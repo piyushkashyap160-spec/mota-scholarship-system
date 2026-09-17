@@ -1,21 +1,26 @@
 import re
 import os
+import shutil
 from difflib import SequenceMatcher
 from typing import Dict, Any, Tuple
 from PIL import Image
 
 try:
     import pytesseract
-    # Check common Windows paths for Tesseract
-    common_tesseract_paths = [
-        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-        r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
-        r"C:\Users\piyus\AppData\Local\Tesseract-OCR\tesseract.exe"
-    ]
-    for p in common_tesseract_paths:
-        if os.path.exists(p):
-            pytesseract.pytesseract.tesseract_cmd = p
-            break
+    tesseract_auto = shutil.which("tesseract")
+    if tesseract_auto:
+        pytesseract.pytesseract.tesseract_cmd = tesseract_auto
+    else:
+        # fallback Windows paths
+        common_tesseract_paths = [
+            r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+            r"C:\Program Files (x86)\Tesseract-OCR\tesseract.exe",
+            os.path.expandvars(r"%LOCALAPPDATA%\Programs\Tesseract-OCR\tesseract.exe")
+        ]
+        for p in common_tesseract_paths:
+            if os.path.exists(p):
+                pytesseract.pytesseract.tesseract_cmd = p
+                break
 except ImportError:
     pytesseract = None
 
@@ -314,7 +319,7 @@ def cross_verify_document(doc_type: str, extracted_data: Dict[str, Any], form_da
     elif confidence >= 50.0:
         status = "Needs Review"
     else:
-        status = "Needs Review"
+        status = "Missing/Unreadable"
 
     comparison_result = {
         "status": status,

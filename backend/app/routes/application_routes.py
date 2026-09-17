@@ -49,14 +49,16 @@ def submit_application(
         calculated_merit_score=merit_score,
         disbursement_status="Pending Verification",
         disbursement_amount=0.0,
-        submission_date=datetime.utcnow()
+        submission_date=datetime.utcnow(),
+        is_aadhaar_verified=bool(payload.form_data.get("is_aadhaar_verified")) if isinstance(payload.form_data, dict) else False,
+        aadhaar_data=(payload.form_data.get("aadhaar_data") or {}) if isinstance(payload.form_data, dict) else {}
     )
     db.add(new_app)
     db.flush()
 
     # Run AI Fraud & Duplicate Detection Engine
     risk_assessment = evaluate_application_risk(new_app, db, uploaded_file_hashes)
-    new_app.risk_assessment = risk_assessment
+    new_app.risk_assessment = risk_assessment or {}
     new_app.risk_level = risk_assessment.get("risk_level", "LOW")
     new_app.risk_score = risk_assessment.get("risk_score", 0.0)
 
@@ -74,9 +76,9 @@ def submit_application(
             predicted_type=doc_item.get("predicted_type"),
             classifier_confidence=doc_item.get("classifier_confidence"),
             type_mismatch=doc_item.get("type_mismatch", False),
-            tampering_signals=doc_item.get("tampering_signals"),
-            extracted_data=doc_item.get("extracted_data", {}),
-            comparison_data=doc_item.get("comparison_matrix", {}),
+            tampering_signals=doc_item.get("tampering_signals") or {},
+            extracted_data=doc_item.get("extracted_data") or {},
+            comparison_data=doc_item.get("comparison_matrix") or {},
             ocr_text=doc_item.get("ocr_preview", "OCR Processed"),
             upload_date=datetime.utcnow()
         )

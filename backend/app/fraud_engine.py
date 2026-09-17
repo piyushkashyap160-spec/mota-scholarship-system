@@ -1,4 +1,4 @@
-﻿import re
+import re
 from difflib import SequenceMatcher
 from typing import Dict, Any, List, Tuple
 from sqlalchemy.orm import Session
@@ -75,20 +75,7 @@ def evaluate_application_risk(
 
             if other_dob and current_dob == other_dob:
                 sim = string_similarity(current_name, other_name)
-                if sim >= 0.85 and sim < 1.0:
-                    flags.append({
-                        "code": "SUSPECTED_NAME_VARIANT_COLLISION",
-                        "title": "Suspected Name Variant & Same DOB",
-                        "severity": "HIGH",
-                        "points": 35,
-                        "description": f"Candidate name '{current_name}' is a close spelling variation ({int(sim*100)}% match) of '{other_name}' with identical DOB '{current_dob}' in application {other.application_number}.",
-                        "matched_application_id": other.id,
-                        "matched_application_number": other.application_number,
-                        "matched_applicant_name": other_name
-                    })
-                    risk_score += 35
-                    break
-                elif sim >= 1.0:
+                if sim == 1.0:
                     flags.append({
                         "code": "IDENTICAL_IDENTITY_DIFFERENT_ACCOUNT",
                         "title": "Identical Identity Across Multiple User Accounts",
@@ -100,6 +87,19 @@ def evaluate_application_risk(
                         "matched_applicant_name": other_name
                     })
                     risk_score += 40
+                    break
+                elif sim >= 0.85:
+                    flags.append({
+                        "code": "SUSPECTED_NAME_VARIANT_COLLISION",
+                        "title": "Suspected Name Variant & Same DOB",
+                        "severity": "HIGH",
+                        "points": 35,
+                        "description": f"Candidate name '{current_name}' is a close spelling variation ({int(sim*100)}% match) of '{other_name}' with identical DOB '{current_dob}' in application {other.application_number}.",
+                        "matched_application_id": other.id,
+                        "matched_application_number": other.application_number,
+                        "matched_applicant_name": other_name
+                    })
+                    risk_score += 35
                     break
 
     # 3. Check Bank Account Collision (DBT diversion fraud signal)
