@@ -24,6 +24,11 @@ export default function App() {
         try {
           const user = await api.auth.getMe();
           setCurrentUser(user);
+          if (user.role === 'admin') {
+            setActiveTab('admin-dashboard');
+          } else {
+            setActiveTab('applicant-dashboard');
+          }
         } catch (_) {
           localStorage.removeItem('mota_token');
         }
@@ -33,17 +38,27 @@ export default function App() {
     initAuth();
   }, []);
 
-  const handleLoginSuccess = (authData) => {
-    setCurrentUser({
-      id: authData.user_id,
-      email: authData.email,
-      role: authData.role,
-      full_name: authData.full_name,
-    });
-    if (authData.role === 'admin') {
-      setActiveTab('admin-dashboard');
-    } else {
-      setActiveTab('applicant-dashboard');
+  const handleLoginSuccess = async (authData) => {
+    try {
+      const fullProfile = await api.auth.getMe();
+      setCurrentUser(fullProfile);
+      if (fullProfile.role === 'admin') {
+        setActiveTab('admin-dashboard');
+      } else {
+        setActiveTab('applicant-dashboard');
+      }
+    } catch (_) {
+      setCurrentUser({
+        id: authData.user_id,
+        email: authData.email,
+        role: authData.role,
+        full_name: authData.full_name,
+      });
+      if (authData.role === 'admin') {
+        setActiveTab('admin-dashboard');
+      } else {
+        setActiveTab('applicant-dashboard');
+      }
     }
   };
 
@@ -57,15 +72,24 @@ export default function App() {
   const handleSwitchDemo = async () => {
     try {
       if (currentUser?.role === 'admin') {
-        // Switch to ST Applicant with Deficiency
-        const res = await api.auth.login('sanjay.marandi@stmail.in', 'scholar123');
+        // Switch to ST Applicant (Pooja Halba with active deficiency or Birsa Soren)
+        let res;
+        try {
+          res = await api.auth.login('pooja.halba@stmail.in', 'scholar123');
+        } catch (_) {
+          try {
+            res = await api.auth.login('birsa.soren@research.ac.in', 'scholar123');
+          } catch (e) {
+            res = await api.auth.login('sanjay.marandi@stmail.in', 'scholar123');
+          }
+        }
         localStorage.setItem('mota_token', res.access_token);
-        handleLoginSuccess(res);
+        await handleLoginSuccess(res);
       } else {
         // Switch to MoTA Admin
         const res = await api.auth.login('admin@mota.gov.in', 'admin123');
         localStorage.setItem('mota_token', res.access_token);
-        handleLoginSuccess(res);
+        await handleLoginSuccess(res);
       }
     } catch (err) {
       console.error('Demo switch error:', err);

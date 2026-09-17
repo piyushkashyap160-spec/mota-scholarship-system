@@ -267,13 +267,13 @@ export default function Login({ onLoginSuccess, initialTab = 'login' }) {
 
               <button
                 type="button"
-                onClick={() => triggerQuickDemo('sanjay.marandi@stmail.in', 'scholar123')}
+                onClick={() => triggerQuickDemo('pooja.halba@stmail.in', 'scholar123')}
                 className="w-full p-2.5 rounded-lg border border-amber-200 bg-amber-50/70 hover:bg-amber-100 text-amber-900 text-left flex items-center justify-between transition-colors text-xs"
               >
                 <div className="flex items-center space-x-2">
                   <User className="w-4 h-4 text-amber-700" />
                   <div>
-                    <span className="font-bold block">Sanjay Marandi (Needs Review Demo)</span>
+                    <span className="font-bold block">Pooja Halba (Needs Review Demo)</span>
                     <span className="text-[10px] text-slate-500">Has active deficiency ready for resubmission</span>
                   </div>
                 </div>

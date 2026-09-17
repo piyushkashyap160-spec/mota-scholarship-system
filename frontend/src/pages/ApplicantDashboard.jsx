@@ -33,7 +33,7 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
 
   useEffect(() => {
     loadApplications();
-  }, []);
+  }, [currentUser?.id]);
 
   const handleSelectApplication = async (appId) => {
     try {
