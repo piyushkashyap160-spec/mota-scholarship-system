@@ -60,14 +60,14 @@ export default function Home({ onSelectScheme, onOpenLogin, currentUser }) {
           ) : (
             <div className="mt-8 flex flex-wrap gap-4">
               <button
-                onClick={() => onSelectScheme(schemes[0]?.id || 1)}
+                onClick={() => onSelectScheme(schemes.find(s => s.code === 'NFST')?.id || 1)}
                 className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg transition-all flex items-center space-x-2 text-sm"
               >
                 <span>Apply for Fellowship (NFST)</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
-                onClick={() => onSelectScheme(schemes[1]?.id || 2)}
+                onClick={() => onSelectScheme(schemes.find(s => s.code === 'NOS')?.id || 2)}
                 className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl border border-white/20 transition-all flex items-center space-x-2 text-sm"
               >
                 <span>Apply for Overseas Studies (NOS)</span>
