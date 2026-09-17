@@ -7,6 +7,7 @@ import ApplicantDashboard from './pages/ApplicantDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 import AdminApplicationDetail from './pages/AdminApplicationDetail';
 import AdminMeritRanking from './pages/AdminMeritRanking';
+import InstitutionDashboard from './pages/InstitutionDashboard';
 import { api } from './api/client';
 
 export default function App() {
@@ -26,6 +27,8 @@ export default function App() {
           setCurrentUser(user);
           if (user.role === 'admin') {
             setActiveTab('admin-dashboard');
+          } else if (user.role === 'institution') {
+            setActiveTab('institution-dashboard');
           } else {
             setActiveTab('applicant-dashboard');
           }
@@ -44,6 +47,8 @@ export default function App() {
       setCurrentUser(fullProfile);
       if (fullProfile.role === 'admin') {
         setActiveTab('admin-dashboard');
+      } else if (fullProfile.role === 'institution') {
+        setActiveTab('institution-dashboard');
       } else {
         setActiveTab('applicant-dashboard');
       }
@@ -56,6 +61,8 @@ export default function App() {
       });
       if (authData.role === 'admin') {
         setActiveTab('admin-dashboard');
+      } else if (authData.role === 'institution') {
+        setActiveTab('institution-dashboard');
       } else {
         setActiveTab('applicant-dashboard');
       }
@@ -68,29 +75,41 @@ export default function App() {
     setActiveTab('home');
   };
 
-  // Quick switch between Admin and Applicant for fast judging demo
-  const handleSwitchDemo = async () => {
+  // Quick switch between Admin, Applicant, and Institution Officers for fast judging demo
+  const handleSwitchDemo = async (targetKey) => {
     try {
-      if (currentUser?.role === 'admin') {
-        // Switch to ST Applicant (Pooja Halba with active deficiency or Birsa Soren)
-        let res;
-        try {
-          res = await api.auth.login('pooja.halba@stmail.in', 'scholar123');
-        } catch (_) {
-          try {
-            res = await api.auth.login('birsa.soren@research.ac.in', 'scholar123');
-          } catch (e) {
-            res = await api.auth.login('sanjay.marandi@stmail.in', 'scholar123');
-          }
-        }
-        localStorage.setItem('mota_token', res.access_token);
-        await handleLoginSuccess(res);
+      let email = 'admin@mota.gov.in';
+      let pass = 'admin123';
+
+      if (targetKey === 'applicant') {
+        email = 'birsa.soren@research.ac.in';
+        pass = 'scholar123';
+      } else if (targetKey === 'iitd') {
+        email = 'nodal@iitd.ac.in';
+        pass = 'nodal123';
+      } else if (targetKey === 'cuj') {
+        email = 'nodal@cuj.ac.in';
+        pass = 'nodal123';
+      } else if (targetKey === 'admin') {
+        email = 'admin@mota.gov.in';
+        pass = 'admin123';
       } else {
-        // Switch to MoTA Admin
-        const res = await api.auth.login('admin@mota.gov.in', 'admin123');
-        localStorage.setItem('mota_token', res.access_token);
-        await handleLoginSuccess(res);
+        // Alternating toggle
+        if (currentUser?.role === 'admin') {
+          email = 'birsa.soren@research.ac.in';
+          pass = 'scholar123';
+        } else if (currentUser?.role === 'applicant') {
+          email = 'nodal@cuj.ac.in';
+          pass = 'nodal123';
+        } else {
+          email = 'admin@mota.gov.in';
+          pass = 'admin123';
+        }
       }
+
+      const res = await api.auth.login(email, pass);
+      localStorage.setItem('mota_token', res.access_token);
+      await handleLoginSuccess(res);
     } catch (err) {
       console.error('Demo switch error:', err);
     }
@@ -195,6 +214,10 @@ export default function App() {
             onBack={() => setActiveTab('admin-dashboard')}
             onSelectApplication={handleSelectAdminApplication}
           />
+        )}
+
+        {activeTab === 'institution-dashboard' && (
+          <InstitutionDashboard currentUser={currentUser} />
         )}
       </main>
 

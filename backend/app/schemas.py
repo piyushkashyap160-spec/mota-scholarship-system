@@ -25,11 +25,20 @@ class UserRegister(BaseModel):
     state: Optional[str] = None
     community_tribe: Optional[str] = None
     institution: Optional[str] = None
+    institution_name: Optional[str] = None
     course: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr
+    otp: str
+    new_password: str
 
 class UserOut(BaseModel):
     id: int
@@ -41,6 +50,7 @@ class UserOut(BaseModel):
     state: Optional[str] = None
     community_tribe: Optional[str] = None
     institution: Optional[str] = None
+    institution_name: Optional[str] = None
     course: Optional[str] = None
     created_at: datetime
 
@@ -65,6 +75,13 @@ class SchemeOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class SchemeUpdateRequest(BaseModel):
+    income_ceiling: Optional[float] = None
+    min_marks: Optional[float] = None
+    financial_assistance: Optional[str] = None
+    objective: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class DocumentOut(BaseModel):
     id: int
@@ -131,6 +148,9 @@ class ApplicationOut(BaseModel):
     submission_date: datetime
     applicant: Optional[UserOut] = None
     scheme: Optional[SchemeOut] = None
+    parent_application_id: Optional[int] = None
+    enrollment_verified: bool = False
+    enrollment_verification_id: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -144,6 +164,17 @@ class ApplicationDetailOut(ApplicationOut):
     disbursement_status: Optional[str] = None
     disbursement_amount: Optional[float] = None
     renewal_due_date: Optional[str] = None
+    parent_application_id: Optional[int] = None
+
+class RenewalSubmitRequest(BaseModel):
+    progress_report: str
+    continuation_institution: str
+    continuation_course: str
+    bank_account_confirmed: bool
+    current_year_semester: Optional[str] = None
+    supervisor_guide_name: Optional[str] = None
+    marks_or_grade: Optional[str] = None
+
 
 class ApplicationSubmit(BaseModel):
     scheme_id: int
@@ -165,3 +196,36 @@ class ResubmitDocumentRequest(BaseModel):
     deficiency_id: int
     file_name: str
     file_data: Optional[str] = None
+
+class NotificationLogOut(BaseModel):
+    id: int
+    recipient_email: Optional[str] = None
+    recipient_phone: Optional[str] = None
+    notification_type: str
+    subject: str
+    body_preview: Optional[str] = None
+    status: str
+    application_id: Optional[int] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class EnrollmentVerificationRequest(BaseModel):
+    enrolled: bool
+    enrollment_number: Optional[str] = None
+    remarks: Optional[str] = None
+
+class EnrollmentVerificationOut(BaseModel):
+    id: int
+    application_id: int
+    verified_by_user_id: int
+    institution_name: str
+    enrollment_number: Optional[str] = None
+    enrolled: bool
+    remarks: Optional[str] = None
+    verified_at: datetime
+
+    class Config:
+        from_attributes = True
+

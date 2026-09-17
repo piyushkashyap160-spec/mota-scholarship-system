@@ -5,6 +5,7 @@ import Timeline from '../components/Timeline';
 import StatusBadge from '../components/StatusBadge';
 import SideBySideOcrViewer from '../components/SideBySideOcrViewer';
 import PfmsDisbursementModal from '../components/PfmsDisbursementModal';
+import RenewalModal from '../components/RenewalModal';
 
 export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
   const [applications, setApplications] = useState([]);
@@ -14,6 +15,7 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
   const [resubmitting, setResubmitting] = useState(false);
   const [resubmitMsg, setResubmitMsg] = useState(null);
   const [showPfmsModal, setShowPfmsModal] = useState(false);
+  const [showRenewalModal, setShowRenewalModal] = useState(false);
 
   const loadApplications = async () => {
     try {
@@ -69,6 +71,10 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
   }
 
   const openDeficiencies = selectedApp?.deficiencies?.filter((d) => d.status === 'Open') || [];
+  const hasPendingRenewal = applications.some(
+    (a) => a.parent_application_id === selectedApp?.id && a.status === 'Renewal - Under Review'
+  );
+  const isRenewalDue = selectedApp?.status === 'Selected' && selectedApp?.renewal_due_date;
 
   return (
     <div className="space-y-8 pb-16">
@@ -113,7 +119,11 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
                   : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
               }`}
             >
-              <span>{app.application_number}</span>
+              <span>
+                {app.parent_application_id
+                  ? `${app.scheme?.code || 'Scheme'} - Year Continuation Renewal`
+                  : app.application_number}
+              </span>
               <StatusBadge status={app.status} />
             </button>
           ))}
@@ -127,7 +137,11 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
             <div>
               <span className="text-xs text-slate-500 font-medium">Active Application:</span>
               <div className="flex items-center space-x-2 mt-0.5">
-                <span className="font-mono font-bold text-gov-navy text-sm">{selectedApp.application_number}</span>
+                <span className="font-mono font-bold text-gov-navy text-sm">
+                  {selectedApp.parent_application_id
+                    ? `${selectedApp.application_number} (Year Continuation Renewal)`
+                    : selectedApp.application_number}
+                </span>
                 <span className="text-xs text-slate-600 font-semibold">• {selectedApp.scheme?.name}</span>
               </div>
             </div>
@@ -141,6 +155,57 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
               <span>Track PFMS & DBT Payments</span>
             </button>
           </div>
+
+          {/* FELLOWSHIP RENEWAL DUE BANNER */}
+          {isRenewalDue && !hasPendingRenewal && (
+            <div className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-6 shadow-lg border border-blue-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-in fade-in">
+              <div className="flex items-start space-x-3.5">
+                <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl text-blue-200 mt-0.5 flex-shrink-0">
+                  <RefreshCw className="w-6 h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-[11px] uppercase tracking-wider font-extrabold bg-blue-500/30 text-blue-200 px-2.5 py-0.5 rounded-full border border-blue-400/30">
+                      Annual Continuation Required
+                    </span>
+                    <span className="text-xs text-blue-200 font-mono">
+                      Due: {selectedApp.renewal_due_date}
+                    </span>
+                  </div>
+                  <h3 className="text-base font-bold text-white mt-1">
+                    Fellowship Renewal Due for Next Academic Year
+                  </h3>
+                  <p className="text-xs text-blue-100/80 mt-1 max-w-2xl leading-relaxed">
+                    Your fellowship award under <strong>{selectedApp.scheme?.name}</strong> is eligible for annual continuation. Submit your annual academic progress report and continuation certification to extend DBT fellowship disbursements for another year.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowRenewalModal(true)}
+                className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs shadow-md transition-all flex items-center space-x-2 whitespace-nowrap self-start sm:self-center"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>Apply for Renewal</span>
+              </button>
+            </div>
+          )}
+
+          {/* RENEWAL UNDER REVIEW INFO BANNER */}
+          {hasPendingRenewal && (
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 flex items-center space-x-3 shadow-xs">
+              <div className="p-2.5 bg-blue-100 text-blue-800 rounded-xl flex-shrink-0">
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-blue-900">Fellowship Renewal Application Under Review</h4>
+                <p className="text-xs text-blue-700 mt-0.5">
+                  Your annual fellowship renewal is currently being scrutinized by the Ministry Scrutiny Officer. Upon approval, your fellowship award will be automatically extended by +365 days.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* HIGH PRIORITY DEFICIENCY ALERT BANNER */}
           {openDeficiencies.length > 0 && (
@@ -309,6 +374,16 @@ export default function ApplicantDashboard({ currentUser, onNavigateApply }) {
         applicationId={selectedApp?.id}
         applicationNumber={selectedApp?.application_number}
         schemeCode={selectedApp?.scheme?.code}
+      />
+
+      {/* FELLOWSHIP RENEWAL MODAL */}
+      <RenewalModal
+        isOpen={showRenewalModal}
+        onClose={() => setShowRenewalModal(false)}
+        application={selectedApp}
+        onRenewalSuccess={() => {
+          loadApplications();
+        }}
       />
     </div>
   );

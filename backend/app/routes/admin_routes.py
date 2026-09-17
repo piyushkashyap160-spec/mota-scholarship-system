@@ -1,15 +1,16 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.responses import PlainTextResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from ..database import get_db
-from ..models import User, Scheme, Application, Document, Deficiency, ActivityLog
-from ..schemas import ApplicationOut, ApplicationDetailOut, AdminActionRequest, MeritWeightConfig
+from ..models import User, Scheme, Application, Document, Deficiency, ActivityLog, NotificationLog
+from ..schemas import ApplicationOut, ApplicationDetailOut, AdminActionRequest, MeritWeightConfig, NotificationLogOut
 from ..auth import get_current_admin
 from ..merit_engine import rank_applications
 from ..audit import log_action, verify_chain_integrity, export_audit_trail_json, export_audit_trail_csv
+from ..notifications import notification_service
 
 SCHEME_ANNUAL_AMOUNTS = {
     "NFST": 336000.0,   # PhD: Rs 28000 x 12
@@ -82,20 +83,43 @@ def take_application_action(
     prev_status = app.status
     act = action_in.action.lower()
     if act == "approve":
+        is_renewal = (prev_status == "Renewal - Under Review") or bool(app.parent_application_id)
         app.status = "Selected"
-        app.disbursement_status = "Active Fellowship Disbursement"
         app.disbursement_amount = SCHEME_ANNUAL_AMOUNTS.get(app.scheme.code, 0.0) if app.scheme else 0.0
-        app.renewal_due_date = "2027-03-31"
 
+        if is_renewal:
+            app.disbursement_status = "Active Fellowship Renewal Disbursement"
+            if app.renewal_due_date:
+                try:
+                    cur_due = datetime.strptime(app.renewal_due_date, "%Y-%m-%d")
+                    app.renewal_due_date = (cur_due + timedelta(days=365)).strftime("%Y-%m-%d")
+                except Exception:
+                    app.renewal_due_date = "2028-03-31"
+            else:
+                app.renewal_due_date = "2028-03-31"
+
+            # Synchronize with parent application if exists
+            if app.parent_application_id:
+                parent = db.query(Application).filter(Application.id == app.parent_application_id).first()
+                if parent:
+                    parent.renewal_due_date = app.renewal_due_date
+                    parent.disbursement_status = "Active Fellowship Renewal Disbursement"
+        else:
+            app.disbursement_status = "Active Fellowship Disbursement"
+            app.renewal_due_date = "2027-03-31"
+
+        action_name = "Fellowship Renewal Approved & Awarded" if is_renewal else "Application Approved & Selected"
         log = ActivityLog(
             application_id=app.id,
-            action="Application Approved & Selected",
+            action=action_name,
             actor=current_admin.full_name,
             stage="Selected",
-            remarks=action_in.remarks or "Candidate selected by Scrutiny Committee for award of Fellowship/Scholarship.",
+            remarks=action_in.remarks or ("Annual fellowship continuation approved by Scrutiny Committee." if is_renewal else "Candidate selected by Scrutiny Committee for award of Fellowship/Scholarship."),
             created_at=datetime.utcnow()
         )
         db.add(log)
+        if app.applicant:
+            notification_service.notify_application_selected(applicant=app.applicant, application=app, db=db)
 
     elif act == "mark_verified":
         app.status = "Scrutiny"
@@ -122,6 +146,8 @@ def take_application_action(
             created_at=datetime.utcnow()
         )
         db.add(log)
+        if app.applicant:
+            notification_service.notify_application_rejected(applicant=app.applicant, application=app, reason=action_in.remarks, db=db)
 
     elif act == "request_resubmission":
         app.status = "Needs Review"
@@ -154,6 +180,8 @@ def take_application_action(
             created_at=datetime.utcnow()
         )
         db.add(log)
+        if app.applicant:
+            notification_service.notify_deficiency_raised(applicant=app.applicant, application=app, deficiency=defic, db=db)
 
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported action '{action_in.action}'")
@@ -321,3 +349,15 @@ def get_analytics(
             {"stage": "Direct Benefit Transfer (DBT)", "average_time": "24 hours"}
         ]
     }
+
+@router.get("/notifications", response_model=List[NotificationLogOut])
+def list_notification_logs(
+    current_admin: User = Depends(get_current_admin),
+    db: Session = Depends(get_db)
+):
+    """
+    List recent notification logs (last 50), showing recipient, type, status, timestamp.
+    Lets judges see notifications fired during the demo even without real email.
+    """
+    logs = db.query(NotificationLog).order_by(NotificationLog.created_at.desc()).limit(50).all()
+    return logs

@@ -46,11 +46,26 @@ export const api = {
         body: JSON.stringify(userData),
       }),
     getMe: () => request('/api/auth/me'),
+    forgotPassword: (email) =>
+      request('/api/auth/forgot-password', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+    resetPassword: (email, otp, new_password) =>
+      request('/api/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({ email, otp, new_password }),
+      }),
   },
 
   schemes: {
     getAll: () => request('/api/schemes'),
     getById: (id) => request(`/api/schemes/${id}`),
+    update: (id, data) =>
+      request(`/api/schemes/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      }),
   },
 
   documents: {
@@ -79,6 +94,12 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(payload),
       }),
+    applyRenewal: (id, payload) =>
+      request(`/api/applications/${id}/renewal`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+    getRenewalStatus: (id) => request(`/api/applications/${id}/renewal-status`),
   },
 
   admin: {
@@ -103,6 +124,7 @@ export const api = {
         body: JSON.stringify(weights),
       }),
     getAnalytics: () => request('/api/admin/analytics'),
+    getNotifications: () => request('/api/admin/notifications'),
     getAuditLedger: (id) => request(`/api/admin/applications/${id}/audit-ledger`),
     exportAuditUrl: (id, format = 'json') => `http://localhost:8000/api/admin/applications/${id}/audit-export?format=${format}`,
   },
@@ -131,4 +153,16 @@ export const api = {
         body: JSON.stringify(payload),
       }),
   },
+
+  institution: {
+    getStats: () => request('/api/institution/stats'),
+    getApplications: () => request('/api/institution/applications'),
+    getApplicationDetail: (id) => request(`/api/institution/applications/${id}`),
+    verifyEnrollment: (id, payload) =>
+      request(`/api/institution/applications/${id}/verify-enrollment`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+  },
 };
+

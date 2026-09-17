@@ -1,4 +1,4 @@
-﻿from datetime import datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Optional
 import bcrypt
 from jose import JWTError, jwt
@@ -58,3 +58,12 @@ def get_current_admin(current_user: User = Depends(get_current_user)) -> User:
             detail="Administrative privileges required for this operation"
         )
     return current_user
+
+def get_current_institution_officer(current_user: User = Depends(get_current_user)) -> User:
+    if current_user.role not in ["institution", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Institution nodal officer or administrative privileges required"
+        )
+    return current_user
+

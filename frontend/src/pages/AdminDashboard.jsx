@@ -1,13 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { Award, Search, Filter, Shield, AlertTriangle, CheckCircle2, Clock, Users, ArrowUpRight, FileText, ChevronRight, BarChart3, TrendingUp, Sparkles, ShieldAlert } from 'lucide-react';
+import { Award, Search, Filter, Shield, AlertTriangle, CheckCircle2, Clock, Users, ArrowUpRight, FileText, ChevronRight, BarChart3, TrendingUp, Sparkles, ShieldAlert, Bell, Mail, Send, Sliders } from 'lucide-react';
 import { api } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import RiskBadge from '../components/RiskBadge';
+import SchemeEditor from '../components/SchemeEditor';
 import { INDIAN_STATES_AND_UTS } from '../constants';
 
 export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking }) {
   const [applications, setApplications] = useState([]);
   const [analytics, setAnalytics] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [allSchemes, setAllSchemes] = useState([]);
+  const [editingScheme, setEditingScheme] = useState(null);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -20,7 +24,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
   const loadData = async () => {
     setLoading(true);
     try {
-      const [appsData, statsData] = await Promise.all([
+      const [appsData, statsData, notifsData, schemesData] = await Promise.all([
         api.admin.getApplications({
           scheme: schemeFilter !== 'ALL' ? schemeFilter : undefined,
           status: statusFilter !== 'All' ? statusFilter : undefined,
@@ -29,9 +33,13 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
           search: searchQuery || undefined,
         }),
         api.admin.getAnalytics(),
+        api.admin.getNotifications().catch(() => []),
+        api.schemes.getAll().catch(() => []),
       ]);
       setApplications(appsData);
       setAnalytics(statsData);
+      setNotifications(notifsData || []);
+      setAllSchemes(schemesData || []);
     } catch (err) {
       console.error('Failed to load admin dashboard data:', err);
     } finally {
@@ -204,12 +212,27 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
               </span>
               <div className="grid grid-cols-2 gap-4">
                 {analytics?.scheme_distribution?.map((s) => (
-                  <div key={s.code} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-extrabold text-gov-navy">{s.code}</span>
-                      <span className="text-sm font-extrabold text-slate-800">{s.count} Apps</span>
+                  <div key={s.code} className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col justify-between">
+                    <div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-extrabold text-gov-navy">{s.code}</span>
+                        <span className="text-sm font-extrabold text-slate-800">{s.count} Apps</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 mt-0.5 truncate">{s.scheme}</p>
                     </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">{s.scheme}</p>
+                    <div className="pt-2 mt-2 border-t border-slate-200 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fullScheme = allSchemes.find((item) => item.code === s.code) || s;
+                          setEditingScheme(fullScheme);
+                        }}
+                        className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 text-gov-navy font-bold rounded-lg text-[10px] flex items-center space-x-1 shadow-sm transition-colors"
+                      >
+                        <Sliders className="w-3 h-3 text-amber-500" />
+                        <span>Edit Rules</span>
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -253,6 +276,72 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 ))}
               </div>
             </div>
+          </div>
+
+          {/* Real-time Automated Notification Dispatch Log */}
+          <div className="lg:col-span-12 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center space-x-2">
+                <div className="p-1.5 rounded-lg bg-blue-50 text-gov-navy">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Direct Student Notifications & Dispatch Ledger</h3>
+                  <p className="text-[11px] text-slate-500">Automated SMS & Email communications dispatched across scholarship lifecycle events</p>
+                </div>
+              </div>
+              <span className="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full font-mono font-bold">
+                {notifications.length} Communications Logged
+              </span>
+            </div>
+
+            {notifications.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400 bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+                No notification events recorded yet. Submitting or reviewing applications will trigger automated notifications.
+              </div>
+            ) : (
+              <div className="divide-y divide-slate-100 max-h-72 overflow-y-auto pr-1">
+                {notifications.map((notif) => (
+                  <div key={notif.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-start space-x-3">
+                      <div className="mt-0.5">
+                        {notif.recipient_email ? (
+                          <Mail className="w-3.5 h-3.5 text-blue-600" />
+                        ) : (
+                          <Send className="w-3.5 h-3.5 text-indigo-600" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-slate-800">{notif.subject}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded font-mono font-bold uppercase bg-slate-100 text-slate-600">
+                            {notif.notification_type}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-0.5">
+                          Recipient: <span className="font-medium text-slate-700">{notif.recipient_email || notif.recipient_phone}</span> • <span className="italic">{notif.body_preview}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center space-x-2 shrink-0 self-start sm:self-center">
+                      <span className="text-[10px] text-slate-400 font-mono">
+                        {new Date(notif.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                        notif.status === 'SENT'
+                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                          : notif.status === 'SIMULATED'
+                          ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                          : 'bg-rose-100 text-rose-800 border border-rose-300'
+                      }`}>
+                        {notif.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -346,6 +435,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 <th className="py-3 px-4">Fraud Risk</th>
                 <th className="py-3 px-4">Academic Marks</th>
                 <th className="py-3 px-4">Annual Income</th>
+                <th className="py-3 px-4">Institution Verified</th>
                 <th className="py-3 px-4">AI Verification</th>
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
@@ -353,7 +443,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
             <tbody className="divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     Loading applications...
                   </td>
                 </tr>
@@ -391,6 +481,19 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                       ₹ {parseFloat(app.form_data?.annual_income || 0).toLocaleString('en-IN')}
                     </td>
                     <td className="py-3.5 px-4">
+                      {app.enrollment_verified ? (
+                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200" title="University Nodal Officer confirmed enrollment">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Verified</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200" title="Pending University Nodal sign-off">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          <span>Pending</span>
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-3.5 px-4">
                       <StatusBadge status={app.status} />
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -410,7 +513,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 ))
               ) : (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-slate-400">
+                  <td colSpan={10} className="py-8 text-center text-slate-400">
                     No applications matched the selected filter criteria.
                   </td>
                 </tr>
@@ -419,6 +522,16 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
           </table>
         </div>
       </section>
+
+      {/* Scheme Rules Configuration Modal */}
+      <SchemeEditor
+        scheme={editingScheme}
+        isOpen={Boolean(editingScheme)}
+        onClose={() => setEditingScheme(null)}
+        onSaved={() => {
+          loadData();
+        }}
+      />
     </div>
   );
 }

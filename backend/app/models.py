@@ -16,6 +16,7 @@ class User(Base):
     state = Column(String(100), nullable=True)
     community_tribe = Column(String(100), nullable=True)
     institution = Column(String(255), nullable=True)
+    institution_name = Column(String(255), nullable=True)
     course = Column(String(255), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -62,6 +63,9 @@ class Application(Base):
     disbursement_status = Column(String(100), default="Pending Approval")
     disbursement_amount = Column(Float, default=0.0)
     renewal_due_date = Column(String(50), nullable=True)
+    parent_application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
+    enrollment_verified = Column(Boolean, default=False)
+    enrollment_verification_id = Column(Integer, ForeignKey("enrollment_verifications.id"), nullable=True)
 
     # Risk & Fraud Assessment
     risk_assessment = Column(JSON, default=dict)
@@ -83,6 +87,7 @@ class Application(Base):
     deficiencies = relationship("Deficiency", back_populates="application", cascade="all, delete-orphan")
     timeline_logs = relationship("ActivityLog", back_populates="application", cascade="all, delete-orphan")
     audit_ledger = relationship("AuditLogEntry", back_populates="application", cascade="all, delete-orphan", order_by="AuditLogEntry.id")
+    enrollment_verification = relationship("EnrollmentVerification", foreign_keys=[enrollment_verification_id])
 
 class Document(Base):
     __tablename__ = "documents"
@@ -150,7 +155,7 @@ class AuditLogEntry(Base):
     __tablename__ = "audit_log_entries"
 
     id = Column(Integer, primary_key=True, index=True)
-    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     actor_name = Column(String(255), nullable=False)
     actor_role = Column(String(50), nullable=False)
@@ -166,3 +171,44 @@ class AuditLogEntry(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     application = relationship("Application", back_populates="audit_ledger")
+
+class NotificationLog(Base):
+    __tablename__ = "notification_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    recipient_email = Column(String(255), nullable=True)
+    recipient_phone = Column(String(50), nullable=True)
+    notification_type = Column(String(50), nullable=False)
+    subject = Column(String(255), nullable=False)
+    body_preview = Column(String(255), nullable=True)
+    status = Column(String(20), default="SENT")  # "SENT", "SIMULATED", "FAILED"
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token = Column(String(10), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
+ 
+class EnrollmentVerification(Base):
+    __tablename__ = "enrollment_verifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    application_id = Column(Integer, ForeignKey("applications.id"), nullable=False)
+    verified_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    institution_name = Column(String(255), nullable=False)
+    enrollment_number = Column(String(100), nullable=True)
+    enrolled = Column(Boolean, default=True)
+    remarks = Column(Text, nullable=True)
+    verified_at = Column(DateTime, default=datetime.utcnow)
+
+    application = relationship("Application", foreign_keys=[application_id])
+    verified_by = relationship("User", foreign_keys=[verified_by_user_id])
+

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Shield, User, FileText, Send, Award, Clock, Sparkles } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, AlertTriangle, Shield, User, FileText, Send, Award, Clock, Sparkles, Building2 } from 'lucide-react';
+
 import { api } from '../api/client';
 import StatusBadge from '../components/StatusBadge';
 import SideBySideOcrViewer from '../components/SideBySideOcrViewer';
@@ -149,6 +150,34 @@ export default function AdminApplicationDetail({ applicationId, onBack, onAction
             <span className="font-mono font-extrabold text-gov-navy text-sm">
               {app.calculated_merit_score || 75.0} / 100
             </span>
+          </div>
+        </div>
+
+        {/* Institution Nodal Officer Sign-off Bar */}
+        <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs bg-slate-50/70 p-3 rounded-xl">
+          <div className="flex items-center space-x-2">
+            <Building2 className="w-4 h-4 text-indigo-700 flex-shrink-0" />
+            <div>
+              <span className="text-slate-500 font-medium">Affiliated Institution: </span>
+              <strong className="text-slate-900">{fd.institution || fd.institute_name || app.applicant?.institution || 'N/A'}</strong>
+              <span className="text-slate-400 mx-1.5">•</span>
+              <span className="text-slate-500">Program: </span>
+              <strong className="text-slate-800">{fd.course || fd.degree || 'Ph.D.'}</strong>
+            </div>
+          </div>
+
+          <div>
+            {app.enrollment_verified ? (
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Institution Verified (Nodal Officer Confirmed Regular Enrollment)</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+                <span>Pending Institution Nodal Verification (Prerequisite)</span>
+              </span>
+            )}
           </div>
         </div>
       </div>

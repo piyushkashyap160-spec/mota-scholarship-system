@@ -30,10 +30,10 @@ def compute_entry_hash(
 
 def log_action(
     db: Session,
-    application_id: int,
     actor_name: str,
     actor_role: str,
     action: str,
+    application_id: Optional[int] = None,
     previous_state: Optional[str] = None,
     new_state: Optional[str] = None,
     remarks: Optional[str] = "",

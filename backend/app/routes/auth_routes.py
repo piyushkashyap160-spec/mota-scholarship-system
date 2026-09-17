@@ -1,9 +1,12 @@
+from datetime import datetime, timedelta
+import random
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
-from ..models import User
-from ..schemas import UserRegister, UserLogin, UserOut, Token
+from ..models import User, PasswordResetToken
+from ..schemas import UserRegister, UserLogin, UserOut, Token, ForgotPasswordRequest, ResetPasswordRequest
 from ..auth import verify_password, get_password_hash, create_access_token, get_current_user
+from ..notifications import notification_service
 
 router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
@@ -70,3 +73,72 @@ def login(creds: UserLogin, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserOut)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+@router.post("/forgot-password")
+def forgot_password(payload: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Initiate password reset: generates secure 6-digit OTP and sends email.
+    Always returns generic confirmation message to avoid email enumeration.
+    """
+    email_clean = payload.email.lower().strip()
+    user = db.query(User).filter(User.email == email_clean).first()
+    if user:
+        otp = f"{random.randint(100000, 999999)}"
+        expires_at = datetime.utcnow() + timedelta(minutes=15)
+        reset_token = PasswordResetToken(
+            user_id=user.id,
+            token=otp,
+            expires_at=expires_at,
+            used=False,
+            created_at=datetime.utcnow()
+        )
+        db.add(reset_token)
+        db.commit()
+
+        # Dispatch via NotificationService
+        subject = "MoTA Portal: Password Reset Verification OTP"
+        body = (
+            f"Dear {user.full_name},<br/><br/>"
+            f"A password reset request was initiated for your account.<br/>"
+            f"Your One-Time Password (OTP) is: <strong style='font-size:18px; color:#1e3a8a;'>{otp}</strong><br/>"
+            f"This code is valid for 15 minutes. Do not share this code with anyone.<br/><br/>"
+            f"Regards,<br/>Identity & Access Management, Ministry of Tribal Affairs"
+        )
+        notification_service.send_email(
+            to_email=user.email,
+            subject=subject,
+            body_html=body,
+            notification_type="PASSWORD_RESET_OTP",
+            db=db
+        )
+        db.commit()
+
+    return {"message": "OTP sent to registered email"}
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    """
+    Validate OTP and update user's password.
+    """
+    email_clean = payload.email.lower().strip()
+    user = db.query(User).filter(User.email == email_clean).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid OTP or email")
+
+    token_entry = db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.token == payload.otp.strip(),
+        PasswordResetToken.used == False,
+        PasswordResetToken.expires_at > datetime.utcnow()
+    ).order_by(PasswordResetToken.id.desc()).first()
+
+    if not token_entry:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP")
+
+    # Update password
+    user.hashed_password = get_password_hash(payload.new_password)
+    token_entry.used = True
+    db.commit()
+
+    return {"message": "Password reset successful"}
+

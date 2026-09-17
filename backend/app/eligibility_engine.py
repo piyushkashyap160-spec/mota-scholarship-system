@@ -1,6 +1,10 @@
-﻿from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple
 
-def evaluate_eligibility(scheme_rules: Dict[str, Any], form_data: Dict[str, Any]) -> Tuple[bool, List[str], Dict[str, Any]]:
+def evaluate_eligibility(
+    scheme_rules: Dict[str, Any], 
+    form_data: Dict[str, Any],
+    enrollment_verified: bool = False
+) -> Tuple[bool, List[str], Dict[str, Any]]:
     """
     Evaluates applicant's form data against scheme's configurable eligibility rules.
     Returns: (is_eligible, notes, breakdown)
@@ -87,4 +91,21 @@ def evaluate_eligibility(scheme_rules: Dict[str, Any], form_data: Dict[str, Any]
     else:
         notes.append(f"Program Level Satisfied ({user_course})")
 
+    # 5. Institution Verification Prerequisite
+    requires_inst_verif = scheme_rules.get("requires_institution_verification", True)
+    is_inst_verified = enrollment_verified or form_data.get("enrollment_verified", False)
+    breakdown["institution_verification"] = {
+        "label": "Institution Nodal Verification",
+        "required": requires_inst_verif,
+        "verified": is_inst_verified,
+        "passed": is_inst_verified or not requires_inst_verif,
+        "status": "Verified by Institution" if is_inst_verified else "Pending Institution Verification",
+        "remarks": "Enrollment confirmed by Institute Nodal Officer" if is_inst_verified else "Pending verification by Institute Nodal Officer prior to Ministry scrutiny"
+    }
+    if requires_inst_verif and not is_inst_verified:
+        notes.append("Pending Institution Verification: Awaiting nodal officer enrollment sign-off")
+    elif is_inst_verified:
+        notes.append("Institution Enrollment Verified by Nodal Officer")
+
     return is_eligible, notes, breakdown
+

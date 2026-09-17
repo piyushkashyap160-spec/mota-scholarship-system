@@ -5,12 +5,13 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import User, Scheme, Application, Document, Deficiency, ActivityLog
-from ..schemas import ApplicationOut, ApplicationDetailOut, ApplicationSubmit, ResubmitDocumentRequest
+from ..schemas import ApplicationOut, ApplicationDetailOut, ApplicationSubmit, ResubmitDocumentRequest, RenewalSubmitRequest
 from ..auth import get_current_user
 from ..eligibility_engine import evaluate_eligibility
 from ..merit_engine import calculate_merit_score
 from ..fraud_engine import evaluate_application_risk
 from ..audit import log_action
+from ..notifications import notification_service
 
 router = APIRouter(prefix="/api/applications", tags=["Applications"])
 
@@ -131,6 +132,9 @@ def submit_application(
         user_id=current_user.id
     )
 
+    # Trigger Notification (Priority 1)
+    notification_service.notify_submission_received(applicant=current_user, application=new_app, db=db)
+
     db.commit()
     db.refresh(new_app)
     return new_app
@@ -227,3 +231,107 @@ def resubmit_deficient_document(
     db.commit()
 
     return {"message": "Document resubmitted successfully. Deficiency resolved.", "new_status": app.status}
+
+@router.post("/{app_id}/renewal", response_model=ApplicationDetailOut)
+def apply_fellowship_renewal(
+    app_id: int,
+    payload: RenewalSubmitRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Annual fellowship continuation/renewal submission.
+    Only accessible if parent application is Selected and renewal_due_date is set.
+    """
+    parent_app = db.query(Application).filter(Application.id == app_id).first()
+    if not parent_app:
+        raise HTTPException(status_code=404, detail="Application not found")
+
+    if parent_app.user_id != current_user.id and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Unauthorized")
+
+    if parent_app.status != "Selected" or not parent_app.renewal_due_date:
+        raise HTTPException(status_code=400, detail="Renewal is only available for Selected scholars with an active renewal due date")
+
+    # Check if a pending renewal already exists
+    existing_renewal = db.query(Application).filter(
+        Application.parent_application_id == parent_app.id,
+        Application.status == "Renewal - Under Review"
+    ).first()
+    if existing_renewal:
+        raise HTTPException(status_code=400, detail="A renewal application is already under review for this fellowship")
+
+    renewal_count = db.query(Application).filter(Application.parent_application_id == parent_app.id).count() + 1
+    new_app_num = f"{parent_app.application_number}-R{renewal_count}"
+
+    merged_form_data = dict(parent_app.form_data or {})
+    merged_form_data.update({
+        "is_renewal": True,
+        "parent_application_number": parent_app.application_number,
+        "parent_application_id": parent_app.id,
+        "progress_report": payload.progress_report,
+        "continuation_institution": payload.continuation_institution,
+        "continuation_course": payload.continuation_course,
+        "bank_account_confirmed": payload.bank_account_confirmed,
+        "current_year_semester": payload.current_year_semester,
+        "supervisor_guide_name": payload.supervisor_guide_name,
+        "marks_or_grade": payload.marks_or_grade,
+    })
+
+    renewal_app = Application(
+        application_number=new_app_num,
+        user_id=parent_app.user_id,
+        scheme_id=parent_app.scheme_id,
+        status="Renewal - Under Review",
+        form_data=merged_form_data,
+        parent_application_id=parent_app.id,
+        eligibility_passed=True,
+        calculated_merit_score=parent_app.calculated_merit_score,
+        disbursement_status="Renewal - Pending Scrutiny",
+        disbursement_amount=0.0,
+        renewal_due_date=parent_app.renewal_due_date,
+        submission_date=datetime.utcnow()
+    )
+    db.add(renewal_app)
+    db.flush()
+
+    # Timeline Log
+    log = ActivityLog(
+        application_id=renewal_app.id,
+        action="Fellowship Renewal Application Submitted",
+        actor=current_user.full_name,
+        stage="Submitted",
+        remarks=f"Annual renewal application {new_app_num} submitted with annual progress report.",
+        created_at=datetime.utcnow()
+    )
+    db.add(log)
+
+    # Cryptographic Audit Ledger Entry (Priority 5)
+    log_action(
+        db=db,
+        application_id=renewal_app.id,
+        actor_name=current_user.full_name,
+        actor_role="Applicant",
+        action="Fellowship Renewal Application Submitted",
+        previous_state="Selected",
+        new_state="Renewal - Under Review",
+        remarks=f"Renewal application submitted for parent fellowship {parent_app.application_number}.",
+        stage="Renewal",
+        user_id=current_user.id
+    )
+
+    db.commit()
+    db.refresh(renewal_app)
+    return renewal_app
+
+@router.get("/{app_id}/renewal-status")
+def get_renewal_status(
+    app_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    renewal_app = db.query(Application).filter(Application.parent_application_id == app_id).order_by(Application.id.desc()).first()
+    if not renewal_app:
+        return {"has_renewal": False, "renewal_application": None}
+    return {"has_renewal": True, "renewal_application": renewal_app}
+

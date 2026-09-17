@@ -12,7 +12,8 @@ from datetime import datetime, timedelta
 import hashlib
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
-from .models import User, Scheme, Application, Document, Deficiency, ActivityLog, AuditLogEntry
+from .models import User, Scheme, Application, Document, Deficiency, ActivityLog, AuditLogEntry, NotificationLog, EnrollmentVerification, PasswordResetToken
+
 from .auth import get_password_hash
 from .ocr_engine import cross_verify_document, parse_st_certificate, parse_income_certificate, parse_admission_letter, parse_marksheet
 from .eligibility_engine import evaluate_eligibility
@@ -59,8 +60,138 @@ ALL_INDIAN_STATES_AND_UTS = [
     "West Bengal"
 ]
 
+def _ensure_feature_seeds(db: Session):
+    # 1. Ensure 2 Institution Accounts exist
+    iitd = db.query(User).filter(User.email == "nodal@iitd.ac.in").first()
+    if not iitd:
+        iitd = User(
+            email="nodal@iitd.ac.in",
+            hashed_password=get_password_hash("nodal123"),
+            role="institution",
+            full_name="Prof. Arvind Meena (Dean of Student Affairs)",
+            phone="+91-11-2659-1000",
+            state="Delhi (NCT)",
+            community_tribe="Meena",
+            institution="Indian Institute of Technology, Delhi",
+            institution_name="Indian Institute of Technology, Delhi",
+            course="Nodal Verification Desk"
+        )
+        db.add(iitd)
+        db.flush()
+
+    cuj = db.query(User).filter(User.email == "nodal@cuj.ac.in").first()
+    if not cuj:
+        cuj = User(
+            email="nodal@cuj.ac.in",
+            hashed_password=get_password_hash("nodal123"),
+            role="institution",
+            full_name="Dr. Sushila Oraon (Nodal Officer)",
+            phone="+91-651-290-0010",
+            state="Jharkhand",
+            community_tribe="Oraon",
+            institution="Central University of Jharkhand",
+            institution_name="Central University of Jharkhand",
+            course="Nodal Verification Desk"
+        )
+        db.add(cuj)
+        db.flush()
+
+    # 2. Ensure 3 Simulated Notification Logs exist
+    if db.query(NotificationLog).count() == 0:
+        birsa_app = db.query(Application).filter(Application.application_number == "NFST-2026-1001").first()
+        pooja_app = db.query(Application).filter(Application.application_number == "NFST-2026-1004").first()
+
+        n1 = NotificationLog(
+            recipient_email="birsa.soren@research.ac.in",
+            recipient_phone="+91-98765-0001",
+            notification_type="EMAIL",
+            subject="MoTA Portal: Application Submission Acknowledged (NFST-2026-1001)",
+            body_preview="Your fellowship application NFST-2026-1001 has been received and routed for institutional nodal verification.",
+            status="SIMULATED",
+            application_id=birsa_app.id if birsa_app else None,
+            created_at=datetime.utcnow() - timedelta(days=5)
+        )
+        n2 = NotificationLog(
+            recipient_email="pooja.halba@stmail.in",
+            recipient_phone="+91-98765-0004",
+            notification_type="EMAIL",
+            subject="Action Required: MoTA Application NFST-2026-1004 Flagged for Deficiency",
+            body_preview="A deficiency notice has been issued for document 'Marksheet'. Please upload a certified replacement copy immediately.",
+            status="SIMULATED",
+            application_id=pooja_app.id if pooja_app else None,
+            created_at=datetime.utcnow() - timedelta(days=2)
+        )
+        n3 = NotificationLog(
+            recipient_email="birsa.soren@research.ac.in",
+            recipient_phone="+91-98765-0001",
+            notification_type="SMS",
+            subject="MoTA Award Sanctioned: NFST-2026-1001",
+            body_preview="Hearty Congratulations! Application NFST-2026-1001 has been officially SELECTED for NFST Award. Disbursement: Rs. 3,36,000 via Canara Bank DBT.",
+            status="SIMULATED",
+            application_id=birsa_app.id if birsa_app else None,
+            created_at=datetime.utcnow() - timedelta(days=1)
+        )
+        db.add_all([n1, n2, n3])
+        db.flush()
+
+    # 3. Ensure 2 Enrollment Verifications exist
+    if db.query(EnrollmentVerification).count() == 0:
+        birsa_app = db.query(Application).filter(Application.application_number == "NFST-2026-1001").first()
+        cuj_officer = db.query(User).filter(User.email == "nodal@cuj.ac.in").first()
+        somra_app = db.query(Application).filter(Application.application_number == "NFST-2026-1002").first()
+
+        if birsa_app and cuj_officer:
+            ev1 = EnrollmentVerification(
+                application_id=birsa_app.id,
+                verified_by_user_id=cuj_officer.id,
+                institution_name="Central University of Jharkhand",
+                enrollment_number="CUJ/2023/ST/041",
+                enrolled=True,
+                remarks="Verified against university admission ledger; regular full-time Ph.D. Tribal Studies scholar.",
+                verified_at=datetime.utcnow() - timedelta(days=4)
+            )
+            db.add(ev1)
+            db.flush()
+            birsa_app.enrollment_verified = True
+            birsa_app.enrollment_verification_id = ev1.id
+
+        if somra_app and cuj_officer:
+            ev2 = EnrollmentVerification(
+                application_id=somra_app.id,
+                verified_by_user_id=cuj_officer.id,
+                institution_name="Central University of Jharkhand",
+                enrollment_number="CUJ/2023/ST/041-DUP",
+                enrolled=False,
+                remarks="Roll collision flagged. Student duplicate enrollment check unresolved.",
+                verified_at=datetime.utcnow() - timedelta(days=3)
+            )
+            db.add(ev2)
+            db.flush()
+            somra_app.enrollment_verified = False
+            somra_app.enrollment_verification_id = ev2.id
+
+    # Ensure regular selected/scrutiny apps have enrollment_verified set
+    for a in db.query(Application).filter(Application.status.in_(["Selected", "Scrutiny"])).all():
+        a.enrollment_verified = True
+
+    # 4. Ensure 1 Demo Password Reset Token exists
+    if db.query(PasswordResetToken).count() == 0:
+        birsa = db.query(User).filter(User.email == "birsa.soren@research.ac.in").first()
+        if birsa:
+            prt = PasswordResetToken(
+                user_id=birsa.id,
+                token="482910",
+                expires_at=datetime.utcnow() + timedelta(hours=24),
+                used=False,
+                created_at=datetime.utcnow()
+            )
+            db.add(prt)
+
+    db.commit()
+
 def seed_database(db: Session, force: bool = False):
     if not force and db.query(Scheme).first() is not None and db.query(User).first() is not None:
+        _ensure_feature_seeds(db)
         return
 
     if force:
