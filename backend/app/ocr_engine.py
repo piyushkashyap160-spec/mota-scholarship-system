@@ -250,7 +250,7 @@ def cross_verify_document(doc_type: str, extracted_data: Dict[str, Any], form_da
             "remarks": "Income Verified under MoTA Norms" if income_match else "Declared Income Differs from Certificate"
         }
 
-    elif doc_type == "marksheet_masters" or doc_type == "marksheet":
+    elif doc_type.startswith("marksheet") or doc_type == "marksheet":
         form_marks = form_data.get("marks_percentage")
         ocr_marks = extracted_data.get("aggregate_percentage")
         total_checks += 1

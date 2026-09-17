@@ -78,6 +78,43 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
         </button>
       </div>
 
+      {/* WHY THIS PLATFORM EXISTS — HISTORICAL REFORM IMPACT CALLOUT CARD */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-gov-navy via-blue-900 to-indigo-950 text-white p-6 shadow-md border-l-4 border-l-amber-400 border border-slate-200">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-2 max-w-3xl">
+            <div className="inline-flex items-center space-x-2 bg-amber-400/20 border border-amber-400/30 text-amber-300 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5 mr-1" />
+              <span>Why This Platform Exists • Official MoTA Reform Context</span>
+            </div>
+            <p className="text-sm sm:text-base font-medium text-slate-100 leading-relaxed">
+              &ldquo;As of 2021, <strong className="text-amber-300 font-bold">NFST alone received 17,638 student grievances</strong> &mdash; mostly due to manual verification delays and communication gaps. <span className="text-emerald-300 font-semibold">This platform addresses the root cause.</span>&rdquo;
+            </p>
+            <div className="flex items-center space-x-2 text-xs text-slate-300 pt-1">
+              <span className="text-slate-400">Official MoTA Reference:</span>
+              <a
+                href="https://tribal.nic.in/ScholarshiP.aspx"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-amber-300 font-mono text-[11px] text-amber-200 inline-flex items-center space-x-1"
+              >
+                <span>tribal.nic.in/ScholarshiP.aspx</span>
+                <ArrowUpRight className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+
+          <div className="flex-shrink-0 bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/15 text-center min-w-[170px] self-start md:self-center">
+            <span className="text-3xl font-black text-amber-400 block tracking-tight">17,638</span>
+            <span className="text-[10px] font-extrabold text-slate-200 uppercase tracking-wider block mt-0.5">
+              Historical Grievances
+            </span>
+            <span className="text-[10px] text-emerald-300 font-medium block mt-1">
+              Resolved via AI & DBT
+            </span>
+          </div>
+        </div>
+      </div>
+
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
@@ -237,8 +274,11 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
               className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs font-semibold bg-white text-slate-700"
             >
               <option value="ALL">All Schemes</option>
-              <option value="NFST">NFST (India)</option>
-              <option value="NOS">NOS (Overseas)</option>
+              <option value="NFST">NFST (National Fellowship)</option>
+              <option value="NOS">NOS (National Overseas)</option>
+              <option value="TOP_CLASS">Top Class Education</option>
+              <option value="POST_MATRIC">Post Matric Scholarship</option>
+              <option value="PRE_MATRIC">Pre Matric Scholarship</option>
             </select>
 
             {/* Status Filter */}

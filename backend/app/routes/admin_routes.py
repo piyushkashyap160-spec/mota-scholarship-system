@@ -233,9 +233,16 @@ def get_analytics(
 
     total_funds = db.query(func.sum(Application.disbursement_amount)).scalar() or 0.0
 
-    # Scheme distribution
-    nfst_count = db.query(Application).join(Scheme).filter(Scheme.code == "NFST").count()
-    nos_count = db.query(Application).join(Scheme).filter(Scheme.code == "NOS").count()
+    # Scheme distribution (all active MoTA schemes)
+    all_schemes = db.query(Scheme).all()
+    scheme_distribution = [
+        {
+            "scheme": sc.name,
+            "code": sc.code,
+            "count": db.query(Application).filter(Application.scheme_id == sc.id).count()
+        }
+        for sc in all_schemes
+    ]
 
     # State distribution
     state_rows = db.query(User.state, func.count(Application.id))\
@@ -282,10 +289,7 @@ def get_analytics(
             {"status": "Submitted", "count": submitted_apps, "color": "#6B7280"},
             {"status": "Rejected", "count": rejected_apps, "color": "#EF4444"}
         ],
-        "scheme_distribution": [
-            {"scheme": "NFST (National Fellowship)", "code": "NFST", "count": nfst_count},
-            {"scheme": "NOS (Overseas Scholarship)", "code": "NOS", "count": nos_count}
-        ],
+        "scheme_distribution": scheme_distribution,
         "state_distribution": state_data,
         "frequently_flagged_documents": flagged_docs,
         "processing_velocity": [

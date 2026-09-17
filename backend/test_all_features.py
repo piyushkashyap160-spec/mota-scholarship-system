@@ -75,7 +75,7 @@ class TestMotaSystemModules(unittest.TestCase):
         self.assertIn("tamper_risk", analysis)
         
         # Test seeded tamper test case
-        app_tamper = self.db.query(Application).filter(Application.application_number == "NFST-2026-1006").first()
+        app_tamper = self.db.query(Application).filter(Application.application_number == "TOP_CLASS-2026-1011").first()
         doc_tamper = [d for d in app_tamper.documents if d.doc_type == "st_certificate"][0]
         signals = doc_tamper.tampering_signals or {}
         self.assertTrue(signals.get("blur_detected"))
