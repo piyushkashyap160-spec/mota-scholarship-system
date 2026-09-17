@@ -96,8 +96,19 @@ export default function App() {
     }
   };
 
-  const handleSelectSchemeToApply = (schemeId) => {
-    setSelectedSchemeId(schemeId);
+  const handleSelectSchemeToApply = (target) => {
+    if (currentUser?.role === 'admin') {
+      if (target === 'merit-ranking') {
+        setActiveTab('merit-ranking');
+      } else {
+        setActiveTab('admin-dashboard');
+      }
+      return;
+    }
+
+    if (typeof target === 'number') {
+      setSelectedSchemeId(target);
+    }
     if (!currentUser) {
       setActiveTab('login');
     } else {

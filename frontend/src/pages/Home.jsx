@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Award, Globe, ArrowRight, ShieldCheck, FileCheck, CheckCircle2, Sliders, Users, Sparkles } from 'lucide-react';
 import { api } from '../api/client';
 import SchemeConfigViewer from '../components/SchemeConfigViewer';
@@ -29,7 +29,7 @@ export default function Home({ onSelectScheme, onOpenLogin, currentUser }) {
         <div className="relative z-10 max-w-3xl">
           <div className="inline-flex items-center space-x-2 bg-amber-400/20 border border-amber-400/30 text-amber-300 px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider mb-4">
             <Sparkles className="w-3.5 h-3.5 mr-1" />
-            <span>SIH 2024 Problem Statement 26239</span>
+            <span>SIH 2025 Problem Statement 26239</span>
           </div>
           <h1 className="text-2xl sm:text-4xl font-extrabold tracking-tight leading-tight">
             MoTA Scholarship & Fellowship Management System
@@ -40,22 +40,41 @@ export default function Home({ onSelectScheme, onOpenLogin, currentUser }) {
             and transparent merit scrutiny.
           </p>
 
-          <div className="mt-8 flex flex-wrap gap-4">
-            <button
-              onClick={() => onSelectScheme(schemes[0]?.id || 1)}
-              className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg transition-all flex items-center space-x-2 text-sm"
-            >
-              <span>Apply for Fellowship (NFST)</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-            <button
-              onClick={() => onSelectScheme(schemes[1]?.id || 2)}
-              className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl border border-white/20 transition-all flex items-center space-x-2 text-sm"
-            >
-              <span>Apply for Overseas Studies (NOS)</span>
-              <Globe className="w-4 h-4" />
-            </button>
-          </div>
+          {currentUser?.role === 'admin' ? (
+            <div className="mt-8 flex flex-wrap gap-4">
+              <button
+                onClick={() => onSelectScheme('admin-dashboard')}
+                className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg transition-all flex items-center space-x-2 text-sm"
+              >
+                <span>Enter Central Scrutiny Portal</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => onSelectScheme('merit-ranking')}
+                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl border border-white/20 transition-all flex items-center space-x-2 text-sm"
+              >
+                <span>Assistive Merit Ranking</span>
+                <Users className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="mt-8 flex flex-wrap gap-4">
+              <button
+                onClick={() => onSelectScheme(schemes[0]?.id || 1)}
+                className="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl shadow-lg transition-all flex items-center space-x-2 text-sm"
+              >
+                <span>Apply for Fellowship (NFST)</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => onSelectScheme(schemes[1]?.id || 2)}
+                className="px-6 py-3 bg-white/10 hover:bg-white/20 text-white font-bold rounded-xl border border-white/20 transition-all flex items-center space-x-2 text-sm"
+              >
+                <span>Apply for Overseas Studies (NOS)</span>
+                <Globe className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Decorative Watermark Emblem Accent */}
@@ -108,7 +127,11 @@ export default function Home({ onSelectScheme, onOpenLogin, currentUser }) {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 pb-4">
           <div>
             <span className="text-xs font-bold uppercase tracking-wider text-amber-600">Available Schemes</span>
-            <h2 className="text-xl font-bold text-gov-navy">Choose a Scheme to Apply or Inspect Rules</h2>
+            <h2 className="text-xl font-bold text-gov-navy">
+              {currentUser?.role === 'admin'
+                ? 'Statutory MoTA Schemes & Central Eligibility Rules'
+                : 'Choose a Scheme to Apply or Inspect Rules'}
+            </h2>
           </div>
           <span className="text-xs text-slate-500">Configured via MoTA Central Architecture</span>
         </div>
@@ -171,14 +194,26 @@ export default function Home({ onSelectScheme, onOpenLogin, currentUser }) {
                     <span>View Scheme Config JSON</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => onSelectScheme(scheme.id)}
-                    className="px-5 py-2.5 bg-gov-navy hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-colors flex items-center space-x-1.5 shadow"
-                  >
-                    <span>Start Application</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
-                  </button>
+                  {currentUser?.role === 'admin' ? (
+                    <button
+                      type="button"
+                      onClick={() => onSelectScheme('admin-dashboard')}
+                      className="px-4 py-2.5 bg-blue-900 hover:bg-gov-navy text-white text-xs font-bold rounded-xl transition-colors flex items-center space-x-1.5 shadow"
+                      title={`Open Central Scrutiny Portal for ${scheme.code}`}
+                    >
+                      <span>Review in Scrutiny</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onSelectScheme(scheme.id)}
+                      className="px-5 py-2.5 bg-gov-navy hover:bg-blue-900 text-white text-xs font-bold rounded-xl transition-colors flex items-center space-x-1.5 shadow"
+                    >
+                      <span>Start Application</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
