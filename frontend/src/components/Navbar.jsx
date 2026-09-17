@@ -1,4 +1,4 @@
-﻿import React from 'react';
+import React from 'react';
 import { Award, Shield, User, LogOut, FileText, CheckCircle2, ChevronRight, Home, BarChart3, Users } from 'lucide-react';
 
 export default function Navbar({ currentUser, onLogout, onSwitchDemo, activeTab, setActiveTab }) {
@@ -12,24 +12,24 @@ export default function Navbar({ currentUser, onLogout, onSwitchDemo, activeTab,
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-20">
+        <div className="flex items-center justify-between min-h-[5.5rem] py-2.5 gap-4">
           {/* Brand & Emblem */}
-          <div className="flex items-center space-x-4 cursor-pointer" onClick={() => setActiveTab('home')}>
-            <div className="w-12 h-12 rounded-lg bg-gov-navy flex items-center justify-center text-white shadow-md">
+          <div className="flex items-center space-x-3.5 cursor-pointer select-none flex-shrink-0" onClick={() => setActiveTab('home')}>
+            <div className="w-12 h-12 rounded-xl bg-gov-navy flex items-center justify-center text-white shadow-md flex-shrink-0">
               <Award className="w-7 h-7 text-amber-400" />
             </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center space-x-2 mb-0.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                   Government of India
                 </span>
-                <span className="text-xs font-semibold text-slate-500">SIH-26239</span>
+                <span className="text-[10px] font-semibold text-slate-400">SIH-26239</span>
               </div>
-              <h1 className="text-lg font-bold text-gov-navy leading-tight">
+              <h1 className="text-sm sm:text-base lg:text-lg font-bold text-gov-navy leading-tight whitespace-nowrap">
                 जनजातीय कार्य मंत्रालय <span className="text-slate-400 font-normal">|</span> Ministry of Tribal Affairs
               </h1>
-              <p className="text-xs text-slate-500 font-medium">
-                National Fellowship & Scholarship Management System for Scheduled Tribes (ST)
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium leading-normal mt-0.5 whitespace-nowrap">
+                National Fellowship & Scholarship Portal (Scheduled Tribes)
               </p>
             </div>
           </div>
