@@ -174,7 +174,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
 
             {/* Visual Stacked Progress Bar */}
             <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden flex shadow-inner">
-              {analytics.status_distribution?.map((item) => {
+              {analytics?.status_distribution?.map((item) => {
                 const pct = (item.count / Math.max(kpis.total_applications || 18, 1)) * 100;
                 return (
                   <div
@@ -188,7 +188,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2">
-              {analytics.status_distribution?.map((item) => (
+              {analytics?.status_distribution?.map((item) => (
                 <div key={item.status} className="flex items-center space-x-2 text-xs">
                   <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
                   <span className="text-slate-600">{item.status}:</span>
@@ -203,7 +203,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 Volume by MoTA Scheme
               </span>
               <div className="grid grid-cols-2 gap-4">
-                {analytics.scheme_distribution?.map((s) => (
+                {analytics?.scheme_distribution?.map((s) => (
                   <div key={s.code} className="bg-slate-50 p-3 rounded-xl border border-slate-200">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-extrabold text-gov-navy">{s.code}</span>
@@ -224,7 +224,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
             </div>
 
             <div className="space-y-2.5">
-              {analytics.state_distribution?.slice(0, 5).map((st) => {
+              {analytics?.state_distribution?.slice(0, 5).map((st) => {
                 const pct = (st.count / Math.max(kpis.total_applications || 18, 1)) * 100;
                 return (
                   <div key={st.state} className="text-xs">
@@ -245,7 +245,7 @@ export default function AdminDashboard({ onSelectApplication, onOpenMeritRanking
                 Most Frequently Flagged for Deficiency
               </span>
               <div className="space-y-1.5">
-                {analytics.frequently_flagged_documents?.map((d) => (
+                {analytics?.frequently_flagged_documents?.map((d) => (
                   <div key={d.doc_type} className="flex justify-between items-center text-xs bg-amber-50/60 p-2 rounded border border-amber-200">
                     <span className="font-semibold text-amber-900">{d.doc_type.replace(/_/g, ' ').toUpperCase()}</span>
                     <span className="font-bold text-amber-700">{d.count} flags raised</span>

@@ -60,7 +60,7 @@ ALL_INDIAN_STATES_AND_UTS = [
 ]
 
 def seed_database(db: Session, force: bool = False):
-    if not force and db.query(Scheme).first() is not None:
+    if not force and db.query(Scheme).first() is not None and db.query(User).first() is not None:
         return
 
     if force:

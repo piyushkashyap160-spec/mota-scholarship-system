@@ -43,6 +43,27 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
   // Scanned documents state
   const [scannedDocs, setScannedDocs] = useState({});
   const [step, setStep] = useState(1); // 1: Form Fields, 2: Document Uploads & AI Verification, 3: Review & Submit
+  const [step1Error, setStep1Error] = useState(null);
+
+  const validateStep1 = () => {
+    const isIncomeValid = formData.annual_income !== '' && formData.annual_income !== null && formData.annual_income !== undefined;
+    const isMarksValid = formData.marks_percentage !== '' && formData.marks_percentage !== null && formData.marks_percentage !== undefined;
+    const isNameValid = Boolean(formData.full_name && String(formData.full_name).trim());
+    const isCertValid = Boolean(formData.st_cert_number && String(formData.st_cert_number).trim());
+
+    if (!isNameValid || !isCertValid || !isIncomeValid || !isMarksValid) {
+      setStep1Error('Please fill in all mandatory fields: Full Name, ST Certificate Number, Annual Income, and Qualifying Marks Percentage.');
+      return false;
+    }
+    setStep1Error(null);
+    return true;
+  };
+
+  const handleProceedToStep2 = () => {
+    if (validateStep1()) {
+      setStep(2);
+    }
+  };
 
   useEffect(() => {
     async function fetchScheme() {
@@ -175,7 +196,13 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
             1. Form Fields
           </button>
           <button
-            onClick={() => setStep(2)}
+            onClick={() => {
+              if (step === 1) {
+                handleProceedToStep2();
+              } else {
+                setStep(2);
+              }
+            }}
             className={`px-3 py-1.5 rounded-lg transition-all ${
               step === 2 ? 'bg-gov-navy text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -183,7 +210,12 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
             2. AI Document Scan
           </button>
           <button
-            onClick={() => setStep(3)}
+            onClick={() => {
+              if (step === 1 && !validateStep1()) {
+                return;
+              }
+              setStep(3);
+            }}
             className={`px-3 py-1.5 rounded-lg transition-all ${
               step === 3 ? 'bg-gov-navy text-white shadow' : 'text-slate-600 hover:text-slate-900'
             }`}
@@ -241,13 +273,23 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
           <DynamicFormRenderer
             scheme={scheme}
             formData={formData}
-            onChange={setFormData}
+            onChange={(newData) => {
+              setFormData(newData);
+              if (step1Error) setStep1Error(null);
+            }}
           />
+
+          {step1Error && (
+            <div className="bg-rose-50 border border-rose-200 text-rose-700 p-3 rounded-xl text-xs flex items-center space-x-2">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <span>{step1Error}</span>
+            </div>
+          )}
 
           <div className="flex justify-end pt-4">
             <button
               type="button"
-              onClick={() => setStep(2)}
+              onClick={handleProceedToStep2}
               className="px-6 py-3 bg-gov-navy hover:bg-blue-900 text-white font-bold rounded-xl text-xs flex items-center space-x-2 shadow transition-all"
             >
               <span>Proceed to Document Upload & AI Verification</span>
@@ -366,24 +408,35 @@ export default function ApplyScheme({ schemeId, onBack, onSuccess, currentUser }
               Back to Documents
             </button>
 
-            <button
-              type="button"
-              disabled={submitting}
-              onClick={handleSubmitApplication}
-              className="px-8 py-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs flex items-center space-x-2 shadow-lg transition-all"
-            >
-              {submitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Submitting to Ministry Desk...</span>
-                </>
-              ) : (
-                <>
-                  <Send className="w-4 h-4" />
-                  <span>Submit Application to Ministry of Tribal Affairs</span>
-                </>
+            <div className="flex flex-col items-end">
+              <button
+                type="button"
+                disabled={submitting || scannedCount === 0}
+                onClick={handleSubmitApplication}
+                className={`px-8 py-3 font-extrabold rounded-xl text-xs flex items-center space-x-2 shadow-lg transition-all ${
+                  submitting || scannedCount === 0
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                }`}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Submitting to Ministry Desk...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Submit Application to Ministry of Tribal Affairs</span>
+                  </>
+                )}
+              </button>
+              {scannedCount === 0 && (
+                <p className="text-xs text-amber-600 mt-1 font-semibold">
+                  Upload at least one document to proceed
+                </p>
               )}
-            </button>
+            </div>
           </div>
         </div>
       )}

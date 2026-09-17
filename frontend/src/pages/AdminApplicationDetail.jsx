@@ -38,7 +38,7 @@ export default function AdminApplicationDetail({ applicationId, onBack, onAction
       await api.admin.takeAction(applicationId, {
         action: actionModal,
         remarks: remarks || (actionModal === 'approve' ? 'Approved by Scrutiny Committee' : 'Action taken by Desk Officer'),
-        document_id: selectedDocId ? parseInt(selectedDocId) : (app.documents[0]?.id || null),
+        document_id: actionModal === 'request_resubmission' ? (selectedDocId ? parseInt(selectedDocId) : null) : null,
         doc_type: doc ? doc.doc_type : 'general_scrutiny',
       });
       setActionModal(null);
